@@ -1279,9 +1279,39 @@
             document.getElementById('submit-items-badge').textContent = `✓ ${completedCount} Diagnostic Points Inspected`;
         }
 
+        // Helper: Upload photo base64 to Supabase Storage bucket 'report-documents'
+        async function uploadPhotoToStorage(dataUrl, bookingId) {
+            try {
+                const client = dbClient || window.supabase;
+                if (!client || !dataUrl || !dataUrl.startsWith('data:')) return dataUrl;
+
+                const res = await fetch(dataUrl);
+                const blob = await res.blob();
+                const fileExt = 'jpg';
+                const fileName = `inspection_${bookingId}_${Date.now()}_${Math.random().toString(36).substring(2,7)}.${fileExt}`;
+                const filePath = `photos/${bookingId}/${fileName}`;
+
+                const { data, error } = await client.storage.from('report-documents').upload(filePath, blob, {
+                    contentType: 'image/jpeg',
+                    upsert: true
+                });
+
+                if (error) {
+                    console.warn("Storage upload error, using base64 fallback:", error.message);
+                    return dataUrl;
+                }
+
+                const { data: pubData } = client.storage.from('report-documents').getPublicUrl(filePath);
+                return pubData ? pubData.publicUrl : dataUrl;
+            } catch (err) {
+                console.warn("Storage upload exception, using base64 fallback:", err);
+                return dataUrl;
+            }
+        }
+
         // Submit to Supabase Database
         document.getElementById('submit-report-btn').addEventListener('click', async () => {
-            showLoader('Saving inspection checklist & photos to Supabase...');
+            showLoader('Preparing inspection submission...');
             const client = dbClient || window.supabase;
             if(!client) {
                 hideLoader();
@@ -1290,70 +1320,103 @@
             }
 
             try {
-                const inspectorId = currentProfile ? currentProfile.id : currentUser.id;
+                const inspectorId = (currentProfile && currentProfile.id) ? currentProfile.id : (currentUser ? currentUser.id : null);
 
-                // Delete old submitted answers/photos for clean overwrite
-                await client.from('inspection_answers').delete().eq('booking_id', activeBookingId);
-                await client.from('inspection_photos').delete().eq('booking_id', activeBookingId);
-
+                // Collect answers & photos
                 const answersPayload = [];
-                const photosPayload = [];
+                const rawPhotosList = [];
 
                 CHECKLIST_CATEGORIES.forEach(cat => {
                     cat.items.forEach(item => {
                         const d = currentChecklistDraft.items[item] || { status: 'Pass', severity: 'low', note: '' };
-                        if (d) {
-                            answersPayload.push({
-                                booking_id: activeBookingId,
-                                inspector_id: inspectorId,
-                                category: cat.name,
-                                item_name: item,
-                                answer: d.status,
-                                severity: d.severity || 'low',
-                                remarks: d.note || '',
-                                paint_thickness: d.paint_thickness || null,
-                                obd_value: d.obd_value || null,
-                                gps_location: currentLocationGps || '12.9716, 77.5946'
-                            });
+                        answersPayload.push({
+                            booking_id: activeBookingId,
+                            inspector_id: inspectorId,
+                            category: cat.name,
+                            item_name: item,
+                            answer: d.status || 'Pass',
+                            severity: d.severity || 'low',
+                            remarks: d.note || '',
+                            paint_thickness: d.paint_thickness ? Number(d.paint_thickness) : null,
+                            obd_value: d.obd_value || null,
+                            gps_location: currentLocationGps || '12.9716, 77.5946'
+                        });
 
-                            if (d.photos && d.photos.length > 0) {
-                                d.photos.forEach(pUrl => {
-                                    photosPayload.push({
-                                        booking_id: activeBookingId,
-                                        category: cat.name,
-                                        item_name: item,
-                                        caption: `${item} (${d.status})`,
-                                        photo_url: pUrl
-                                    });
+                        if (d.photos && d.photos.length > 0) {
+                            d.photos.forEach(pUrl => {
+                                rawPhotosList.push({
+                                    category: cat.name,
+                                    item_name: item,
+                                    caption: `${item} (${d.status || 'Pass'})`,
+                                    dataUrl: pUrl
                                 });
-                            }
+                            });
                         }
                     });
                 });
 
-                if (answersPayload.length > 0) {
-                    const { error: ansErr } = await client.from('inspection_answers').insert(answersPayload);
-                    if (ansErr) throw ansErr;
+                // Step 1: Upload photos to Storage bucket in background
+                const photosPayload = [];
+                const totalPhotos = rawPhotosList.length;
+
+                for (let i = 0; i < totalPhotos; i++) {
+                    showLoader(`Uploading photo ${i + 1} of ${totalPhotos}...`);
+                    const photoObj = rawPhotosList[i];
+                    const finalUrl = await uploadPhotoToStorage(photoObj.dataUrl, activeBookingId);
+                    photosPayload.push({
+                        booking_id: activeBookingId,
+                        category: photoObj.category,
+                        item_name: photoObj.item_name,
+                        caption: photoObj.caption,
+                        photo_url: finalUrl
+                    });
                 }
 
-                if (photosPayload.length > 0) {
-                    const { error: photoErr } = await client.from('inspection_photos').insert(photosPayload);
-                    if (photoErr) throw photoErr;
+                // Step 2: Delete previous submitted answers/photos for clean overwrite
+                showLoader('Saving checklist data to database...');
+                await client.from('inspection_answers').delete().eq('booking_id', activeBookingId);
+                await client.from('inspection_photos').delete().eq('booking_id', activeBookingId);
+
+                // Step 3: Insert answers in batches of 50
+                const batchSize = 50;
+                for (let i = 0; i < answersPayload.length; i += batchSize) {
+                    const batch = answersPayload.slice(i, i + batchSize);
+                    const { error: ansErr } = await client.from('inspection_answers').insert(batch);
+                    if (ansErr) {
+                        console.error("Answers batch insert error:", ansErr);
+                        throw new Error("Failed to save inspection answers: " + ansErr.message);
+                    }
                 }
 
-                // Update booking status to completed
-                const { error: bErr } = await client.from('bookings').update({ status: 'completed' }).eq('id', activeBookingId);
+                // Step 4: Insert photos in batches of 5
+                for (let i = 0; i < photosPayload.length; i += 5) {
+                    const photoBatch = photosPayload.slice(i, i + 5);
+                    const { error: photoErr } = await client.from('inspection_photos').insert(photoBatch);
+                    if (photoErr) {
+                        console.error("Photos insert error:", photoErr);
+                        throw new Error("Failed to save inspection photos: " + photoErr.message);
+                    }
+                }
+
+                // Step 5: Update booking status & report_status
+                showLoader('Finalizing inspection status...');
+                const { error: bErr } = await client.from('bookings').update({
+                    status: 'completed',
+                    report_status: 'inspection_completed'
+                }).eq('id', activeBookingId);
+
                 if (bErr) throw bErr;
 
+                // Clear local draft
                 localStorage.removeItem(`draft_${activeBookingId}`);
                 
-                showToast('🎉 Inspection checklist submitted to Admin successfully!');
+                hideLoader();
+                showToast('🎉 Inspection submitted! Photos & checklist ready for Admin review.');
                 window.location.hash = '#/home';
             } catch(e) {
+                hideLoader();
                 console.error("Checklist submit error:", e);
                 showToast(e.message || 'Error submitting checklist', true);
-            } finally {
-                hideLoader();
             }
         });
 
