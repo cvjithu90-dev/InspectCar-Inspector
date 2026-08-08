@@ -545,6 +545,10 @@
             {
                 name: 'Baseline Photos & Docs',
                 items: [
+                    'Exterior — Front View',
+                    'Exterior — Rear View',
+                    'Exterior — Left Side View',
+                    'Exterior — Right Side View',
                     'RC Details',
                     'PUC Certificate',
                     'Insurance Certificate',
@@ -716,6 +720,17 @@
                     'Accessory belt noises',
                     'Visible leaks at idle',
                     'Charging voltage (idle, lights & AC ON)'
+                ]
+            },
+            {
+                name: 'Tyre Data',
+                type: 'tyre',
+                items: [
+                    'Tyre — Front Left (FL)',
+                    'Tyre — Front Right (FR)',
+                    'Tyre — Rear Left (RL)',
+                    'Tyre — Rear Right (RR)',
+                    'Spare Tyre'
                 ]
             }
         ];
@@ -1082,6 +1097,144 @@
             
             const isPaintCategory = cat.name.includes('Paint');
             const isEngineObdCategory = cat.name.includes('Hood') || cat.name.includes('Electrical');
+            const isTyreCategory = cat.type === 'tyre';
+
+            // ── Special Tyre Data rendering ──────────────────────────────
+            if (isTyreCategory) {
+                container.innerHTML = cat.items.map(item => {
+                    const isSpare = item.includes('Spare');
+                    const draft = currentChecklistDraft.items[item] || {};
+                    const photos = draft.photos || [];
+                    const photosHtml = photos.map((pUrl, pIdx) => `
+                        <div class="photo-thumb">
+                            <img src="${pUrl}" alt="Photo">
+                            <button class="del-photo" onclick="removePhoto('${item.replace(/'/g, "\\'")}', ${pIdx})">✕</button>
+                        </div>
+                    `).join('');
+                    const sid = item.replace(/[^a-zA-Z0-9]/g,'_');
+
+                    if (isSpare) {
+                        return `
+                        <div class="check-item" style="border-left: 3px solid #6366f1;">
+                            <div class="check-item-header">
+                                <span style="font-weight:700;font-size:0.95rem;">🔧 ${item}</span>
+                                ${photos.length > 0 ? `<span class="badge badge-completed">📷 ${photos.length}</span>` : ''}
+                            </div>
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0;">
+                                <div>
+                                    <label style="font-size:0.7rem;color:var(--text-muted);">Spare Tyre Condition</label>
+                                    <select onchange="setTyreField('${item.replace(/'/g,"\\'")}','spare_condition',this.value)"
+                                        style="width:100%;font-size:0.82rem;padding:6px;background:rgba(255,255,255,0.05);border:1px solid var(--border-color);color:white;border-radius:6px;">
+                                        <option value="" ${!draft.spare_condition?'selected':''}>Select condition...</option>
+                                        <option value="Good" ${draft.spare_condition==='Good'?'selected':''}>Good</option>
+                                        <option value="Fair" ${draft.spare_condition==='Fair'?'selected':''}>Fair</option>
+                                        <option value="Worn" ${draft.spare_condition==='Worn'?'selected':''}>Worn</option>
+                                        <option value="Flat" ${draft.spare_condition==='Flat'?'selected':''}>Flat</option>
+                                        <option value="Missing" ${draft.spare_condition==='Missing'?'selected':''}>Missing</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style="font-size:0.7rem;color:var(--text-muted);">Tyre Size (if visible)</label>
+                                    <input type="text" placeholder="e.g. 195/65R15" value="${draft.tyre_size||''}"
+                                        onchange="setTyreField('${item.replace(/'/g,"\\'")}','tyre_size',this.value)"
+                                        style="width:100%;font-size:0.82rem;padding:6px;background:rgba(255,255,255,0.05);border:1px solid var(--border-color);color:white;border-radius:6px;">
+                                </div>
+                            </div>
+                            <input type="text" placeholder="Additional remarks..." value="${draft.note||''}"
+                                onchange="setNote('${item.replace(/'/g,"\\'")}',this.value)"
+                                style="width:100%;margin-top:4px;font-size:0.82rem;padding:6px 10px;background:rgba(255,255,255,0.05);border:1px solid var(--border-color);color:white;border-radius:6px;">
+                            <div class="photos-grid">${photosHtml}</div>
+                            <label class="add-photo-btn">
+                                <span>📷 Add Photo</span>
+                                <input type="file" accept="image/*" capture="environment" onchange="handleAddPhoto(event,'${item.replace(/'/g,"\\'")}')">
+                            </label>
+                        </div>`;
+                    }
+
+                    return `
+                    <div class="check-item" style="border-left: 3px solid #f59e0b;">
+                        <div class="check-item-header">
+                            <span style="font-weight:700;font-size:0.95rem;">🛞 ${item}</span>
+                            ${photos.length > 0 ? `<span class="badge badge-completed">📷 ${photos.length}</span>` : ''}
+                        </div>
+
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0;">
+                            <div>
+                                <label style="font-size:0.7rem;color:var(--text-muted);">Manufacturer / Brand</label>
+                                <input type="text" placeholder="e.g. MRF, CEAT, Apollo" value="${draft.tyre_make||''}"
+                                    onchange="setTyreField('${item.replace(/'/g,"\\'")}','tyre_make',this.value)"
+                                    style="width:100%;font-size:0.82rem;padding:6px;background:rgba(255,255,255,0.05);border:1px solid var(--border-color);color:white;border-radius:6px;">
+                            </div>
+                            <div>
+                                <label style="font-size:0.7rem;color:var(--text-muted);">Model / Pattern</label>
+                                <input type="text" placeholder="e.g. ZLX, Milaze X3" value="${draft.tyre_model||''}"
+                                    onchange="setTyreField('${item.replace(/'/g,"\\'")}','tyre_model',this.value)"
+                                    style="width:100%;font-size:0.82rem;padding:6px;background:rgba(255,255,255,0.05);border:1px solid var(--border-color);color:white;border-radius:6px;">
+                            </div>
+                            <div>
+                                <label style="font-size:0.7rem;color:var(--text-muted);">Tyre Size</label>
+                                <input type="text" placeholder="e.g. 195/65R15" value="${draft.tyre_size||''}"
+                                    onchange="setTyreField('${item.replace(/'/g,"\\'")}','tyre_size',this.value)"
+                                    style="width:100%;font-size:0.82rem;padding:6px;background:rgba(255,255,255,0.05);border:1px solid var(--border-color);color:white;border-radius:6px;">
+                            </div>
+                            <div>
+                                <label style="font-size:0.7rem;color:var(--text-muted);">Mfg. Week (DOT Week)</label>
+                                <input type="number" placeholder="e.g. 32" min="1" max="53" value="${draft.mfg_week||''}"
+                                    onchange="setTyreField('${item.replace(/'/g,"\\'")}','mfg_week',this.value)"
+                                    style="width:100%;font-size:0.82rem;padding:6px;background:rgba(255,255,255,0.05);border:1px solid var(--border-color);color:white;border-radius:6px;">
+                            </div>
+                            <div>
+                                <label style="font-size:0.7rem;color:var(--text-muted);">Mfg. Year (DOT Year)</label>
+                                <input type="number" placeholder="e.g. 2021" min="2000" max="2030" value="${draft.mfg_year||''}"
+                                    onchange="setTyreField('${item.replace(/'/g,"\\'")}','mfg_year',this.value)"
+                                    style="width:100%;font-size:0.82rem;padding:6px;background:rgba(255,255,255,0.05);border:1px solid var(--border-color);color:white;border-radius:6px;">
+                            </div>
+                            <div>
+                                <label style="font-size:0.7rem;color:var(--text-muted);">Tread Depth (mm)</label>
+                                <input type="number" placeholder="e.g. 4.5" step="0.5" min="0" max="12" value="${draft.tread_depth||''}"
+                                    onchange="setTyreField('${item.replace(/'/g,"\\'")}','tread_depth',this.value)"
+                                    style="width:100%;font-size:0.82rem;padding:6px;background:rgba(255,255,255,0.05);border:1px solid var(--border-color);color:white;border-radius:6px;">
+                            </div>
+                            <div style="grid-column:1/-1;">
+                                <label style="font-size:0.7rem;color:var(--text-muted);">Tread Condition Analysis</label>
+                                <select onchange="setTyreField('${item.replace(/'/g,"\\'")}','tread_condition',this.value)"
+                                    style="width:100%;font-size:0.82rem;padding:6px;background:rgba(255,255,255,0.05);border:1px solid var(--border-color);color:white;border-radius:6px;">
+                                    <option value="" ${!draft.tread_condition?'selected':''}>Select condition...</option>
+                                    <option value="New (>8mm)" ${draft.tread_condition==='New (>8mm)'?'selected':''}>New (&gt;8mm)</option>
+                                    <option value="Good (5–8mm)" ${draft.tread_condition==='Good (5–8mm)'?'selected':''}>Good (5–8mm)</option>
+                                    <option value="Fair (3–5mm)" ${draft.tread_condition==='Fair (3–5mm)'?'selected':''}>Fair (3–5mm)</option>
+                                    <option value="Worn (1–3mm)" ${draft.tread_condition==='Worn (1–3mm)'?'selected':''}>Worn (1–3mm)</option>
+                                    <option value="Bald (<1mm)" ${draft.tread_condition==='Bald (<1mm)'?'selected':''}>Bald (&lt;1mm)</option>
+                                    <option value="Uneven Wear" ${draft.tread_condition==='Uneven Wear'?'selected':''}>Uneven Wear</option>
+                                </select>
+                            </div>
+                            <div style="grid-column:1/-1;">
+                                <label style="font-size:0.7rem;color:var(--text-muted);">Sidewall / Overall Condition</label>
+                                <select onchange="setTyreField('${item.replace(/'/g,"\\'")}','sidewall_condition',this.value)"
+                                    style="width:100%;font-size:0.82rem;padding:6px;background:rgba(255,255,255,0.05);border:1px solid var(--border-color);color:white;border-radius:6px;">
+                                    <option value="" ${!draft.sidewall_condition?'selected':''}>Select...</option>
+                                    <option value="Good" ${draft.sidewall_condition==='Good'?'selected':''}>Good — No defects</option>
+                                    <option value="Minor Scuffs" ${draft.sidewall_condition==='Minor Scuffs'?'selected':''}>Minor Scuffs</option>
+                                    <option value="Cracked" ${draft.sidewall_condition==='Cracked'?'selected':''}>Cracked / Aged</option>
+                                    <option value="Bulge" ${draft.sidewall_condition==='Bulge'?'selected':''}>Bulge / Deformity</option>
+                                    <option value="Cut/Damage" ${draft.sidewall_condition==='Cut/Damage'?'selected':''}>Cut / Damage</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <input type="text" placeholder="Observations / Notes..." value="${draft.note||''}"
+                            onchange="setNote('${item.replace(/'/g,"\\'")}',this.value)"
+                            style="width:100%;margin-top:4px;font-size:0.82rem;padding:6px 10px;background:rgba(255,255,255,0.05);border:1px solid var(--border-color);color:white;border-radius:6px;">
+
+                        <div class="photos-grid">${photosHtml}</div>
+                        <label class="add-photo-btn">
+                            <span>📷 Add Tyre Photo</span>
+                            <input type="file" accept="image/*" capture="environment" onchange="handleAddPhoto(event,'${item.replace(/'/g,"\\'")}')">
+                        </label>
+                    </div>`;
+                }).join('');
+                return;
+            }
 
             container.innerHTML = cat.items.map(item => {
                 const draft = currentChecklistDraft.items[item] || { status: null, severity: 'low', note: '', paint_thickness: '', obd_value: '', photos: [] };
@@ -1178,6 +1331,12 @@
         window.setObdValue = (itemName, val) => {
             if(!currentChecklistDraft.items[itemName]) currentChecklistDraft.items[itemName] = { status: 'Pass', severity: 'low', photos: [] };
             currentChecklistDraft.items[itemName].obd_value = val;
+            saveDraft(activeBookingId, currentChecklistDraft);
+        };
+
+        window.setTyreField = (itemName, field, val) => {
+            if (!currentChecklistDraft.items[itemName]) currentChecklistDraft.items[itemName] = { photos: [] };
+            currentChecklistDraft.items[itemName][field] = val;
             saveDraft(activeBookingId, currentChecklistDraft);
         };
 
