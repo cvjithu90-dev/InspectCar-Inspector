@@ -546,10 +546,7 @@
                 name: 'Baseline Photos & Docs',
                 type: 'baseline',
                 items: [
-                    'Exterior — Front View',
-                    'Exterior — Rear View',
-                    'Exterior — Left Side View',
-                    'Exterior — Right Side View',
+                    'Exterior Baseline Photos',
                     'RC Details',
                     'PUC Certificate',
                     'Insurance Certificate',
@@ -1104,29 +1101,67 @@
             // ── Baseline Photos: photo-capture only, no Pass/Fail ────────
             if (isBaselineCategory) {
                 container.innerHTML = cat.items.map(item => {
+                    const isExterior = item === 'Exterior Baseline Photos';
                     const draft = currentChecklistDraft.items[item] || {};
+
+                    if (isExterior) {
+                        // 4-slot exterior grid — one item, 4 labelled slots
+                        const slots = [
+                            { key: 'front',  label: 'Front View',      icon: '⬆' },
+                            { key: 'rear',   label: 'Rear View',       icon: '⬇' },
+                            { key: 'left',   label: 'Left Side View',   icon: '◀' },
+                            { key: 'right',  label: 'Right Side View',  icon: '▶' }
+                        ];
+                        const slotsHtml = slots.map(slot => {
+                            const slotDraft = currentChecklistDraft.items['Exterior Baseline Photos_' + slot.key] || {};
+                            const photos = slotDraft.photos || [];
+                            const thumbs = photos.map((p, pi) => `
+                                <div class="photo-thumb" style="width:100%;height:80px;">
+                                    <img src="${p}" style="width:100%;height:80px;object-fit:cover;border-radius:6px;">
+                                    <button class="del-photo" onclick="removePhoto('${('Exterior Baseline Photos_' + slot.key).replace(/'/g,"\\'")}',${pi})">✕</button>
+                                </div>`).join('');
+                            return `
+                            <div style="background:rgba(139,92,246,0.08);border:1px dashed #8b5cf6;border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:6px;">
+                                <div style="font-size:0.78rem;font-weight:700;color:#a78bfa;">${slot.icon} ${slot.label}</div>
+                                ${thumbs}
+                                <label style="display:flex;align-items:center;justify-content:center;gap:6px;background:rgba(139,92,246,0.2);border:1px solid #8b5cf6;border-radius:6px;padding:8px 4px;cursor:pointer;font-size:0.78rem;color:#c4b5fd;font-weight:600;">
+                                    📷 ${photos.length > 0 ? 'Add Another' : 'Capture'}
+                                    <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="handleAddPhoto(event,'${('Exterior Baseline Photos_' + slot.key).replace(/'/g,"\\'")}')">                                </label>
+                            </div>`;
+                        }).join('');
+                        return `
+                        <div class="check-item" style="border-left:3px solid #8b5cf6;">
+                            <div class="check-item-header">
+                                <span style="font-weight:700;font-size:0.95rem;">📸 Exterior Baseline Photos</span>
+                                <span style="font-size:0.75rem;color:#6b7280;">4 angles — Front, Rear, Left, Right</span>
+                            </div>
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;">${slotsHtml}</div>
+                            <input type="text" placeholder="Overall exterior remarks..." value="${draft.note||''}"
+                                onchange="setNote('Exterior Baseline Photos',this.value)"
+                                style="width:100%;margin-top:10px;font-size:0.85rem;padding:6px 10px;background:rgba(255,255,255,0.05);border:1px solid var(--border-color);color:white;border-radius:6px;">
+                        </div>`;
+                    }
+
+                    // Standard doc/photo items (RC, PUC etc.)
                     const photos = draft.photos || [];
-                    const isExteriorPhoto = item.startsWith('Exterior');
                     const photosHtml = photos.map((pUrl, pIdx) => `
                         <div class="photo-thumb">
                             <img src="${pUrl}" alt="Photo">
-                            <button class="del-photo" onclick="removePhoto('${item.replace(/'/g, "\\'")}',${ pIdx})">✕</button>
+                            <button class="del-photo" onclick="removePhoto('${item.replace(/'/g,"\\'")}',${pIdx})">✕</button>
                         </div>
                     `).join('');
-                    const icon = isExteriorPhoto ? '📸' : '📄';
-                    const border = isExteriorPhoto ? 'border-left: 3px solid #8b5cf6;' : 'border-left: 3px solid #374151;';
                     return `
-                    <div class="check-item" style="${border}">
+                    <div class="check-item" style="border-left:3px solid #374151;">
                         <div class="check-item-header">
-                            <span style="font-weight:700;font-size:0.95rem;">${icon} ${item}</span>
-                            ${photos.length > 0 ? `<span class="badge badge-completed">📷 ${photos.length} Photo${photos.length>1?'s':''}</span>` : '<span style="font-size:0.75rem;color:#ef4444;">⚠ Photo Required</span>'}
+                            <span style="font-weight:700;font-size:0.95rem;">📄 ${item}</span>
+                            ${photos.length > 0 ? `<span class="badge badge-completed">📷 ${photos.length} Photo${photos.length>1?'s':''}</span>` : ''}
                         </div>
                         <div class="photos-grid">${photosHtml}</div>
                         <input type="text" placeholder="Remarks / Observations..." value="${draft.note||''}"
                             onchange="setNote('${item.replace(/'/g,"\\'")}',${''}this.value)"
                             style="width:100%;margin-top:8px;font-size:0.85rem;padding:6px 10px;background:rgba(255,255,255,0.05);border:1px solid var(--border-color);color:white;border-radius:6px;">
-                        <label class="add-photo-btn" style="margin-top:6px;${isExteriorPhoto?'background:linear-gradient(135deg,rgba(139,92,246,0.3),rgba(124,58,237,0.2));border:1px dashed #8b5cf6;':''}">
-                            <span>${isExteriorPhoto ? '📷 Capture Exterior Photo' : '📷 Add Photo / Scan'}</span>
+                        <label class="add-photo-btn" style="margin-top:6px;">
+                            <span>📷 Add Photo / Scan</span>
                             <input type="file" accept="image/*" capture="environment" onchange="handleAddPhoto(event,'${item.replace(/'/g,"\\'")}')">                        </label>
                     </div>`;
                 }).join('');
