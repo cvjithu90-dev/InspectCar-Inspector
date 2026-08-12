@@ -1597,6 +1597,27 @@
                     });
                 });
 
+                // Collect Exterior Baseline Photos (stored as per-slot keys, not in CHECKLIST_CATEGORIES items)
+                const exteriorSlots = [
+                    { key: 'front',  label: 'Exterior Baseline Photos – Front View' },
+                    { key: 'rear',   label: 'Exterior Baseline Photos – Rear View' },
+                    { key: 'left',   label: 'Exterior Baseline Photos – Left Side View' },
+                    { key: 'right',  label: 'Exterior Baseline Photos – Right Side View' }
+                ];
+                exteriorSlots.forEach(slot => {
+                    const slotDraft = currentChecklistDraft.items['Exterior Baseline Photos_' + slot.key] || {};
+                    if (slotDraft.photos && slotDraft.photos.length > 0) {
+                        slotDraft.photos.forEach(pUrl => {
+                            rawPhotosList.push({
+                                category: 'Baseline Photos & Docs',
+                                item_name: slot.label,
+                                caption: slot.label,
+                                dataUrl: pUrl
+                            });
+                        });
+                    }
+                });
+
                 // Step 1: Upload photos to Storage bucket in background
                 const photosPayload = [];
                 const totalPhotos = rawPhotosList.length;
