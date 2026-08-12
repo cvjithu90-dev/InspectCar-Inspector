@@ -1555,9 +1555,10 @@
                 const rawPhotosList = [];
 
                 CHECKLIST_CATEGORIES.forEach(cat => {
+                    const isTyreCat = cat.type === 'tyre';
                     cat.items.forEach(item => {
                         const d = currentChecklistDraft.items[item] || { status: 'Pass', severity: 'low', note: '' };
-                        answersPayload.push({
+                        const entry = {
                             booking_id: activeBookingId,
                             inspector_id: inspectorId,
                             category: cat.name,
@@ -1568,7 +1569,20 @@
                             paint_thickness: d.paint_thickness ? Number(d.paint_thickness) : null,
                             obd_value: d.obd_value || null,
                             gps_location: currentLocationGps || '12.9716, 77.5946'
-                        });
+                        };
+                        // Include tyre-specific fields for Tyre Data category
+                        if (isTyreCat) {
+                            entry.tyre_make = d.tyre_make || null;
+                            entry.tyre_model = d.tyre_model || null;
+                            entry.tyre_size = d.tyre_size || null;
+                            entry.mfg_week = d.mfg_week ? Number(d.mfg_week) : null;
+                            entry.mfg_year = d.mfg_year ? Number(d.mfg_year) : null;
+                            entry.tread_depth = d.tread_depth ? Number(d.tread_depth) : null;
+                            entry.tread_condition = d.tread_condition || null;
+                            entry.sidewall_condition = d.sidewall_condition || null;
+                            entry.spare_condition = d.spare_condition || null;
+                        }
+                        answersPayload.push(entry);
 
                         if (d.photos && d.photos.length > 0) {
                             d.photos.forEach(pUrl => {
