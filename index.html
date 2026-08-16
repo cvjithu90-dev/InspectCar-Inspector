@@ -1240,12 +1240,22 @@
                         </div>`;
                     }
 
+                    const isFL = item.includes('Front Left') || item.includes('(FL)');
+
                     return `
                     <div class="check-item" style="border-left: 3px solid #f59e0b;">
                         <div class="check-item-header">
                             <span style="font-weight:700;font-size:0.95rem;">🛞 ${item}</span>
                             ${photos.length > 0 ? `<span class="badge badge-completed">📷 ${photos.length}</span>` : ''}
                         </div>
+
+                        ${isFL ? `
+                        <div style="margin: 8px 0;">
+                            <button type="button" onclick="copyFrontLeftToAllTyres()" style="width:100%;display:flex;align-items:center;justify-content:center;gap:6px;background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.4);color:#fbbf24;padding:8px 10px;border-radius:8px;font-size:0.78rem;font-weight:600;cursor:pointer;">
+                                📋 Copy this data to all 4 tyres (FL, FR, RL, RR)
+                            </button>
+                        </div>
+                        ` : ''}
 
                         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0;">
                             <div>
@@ -1439,6 +1449,39 @@
             if (!currentChecklistDraft.items[itemName]) currentChecklistDraft.items[itemName] = { photos: [] };
             currentChecklistDraft.items[itemName][field] = val;
             saveDraft(activeBookingId, currentChecklistDraft);
+        };
+
+        window.copyFrontLeftToAllTyres = () => {
+            if (!currentChecklistDraft || !currentChecklistDraft.items) return;
+            const allKeys = Object.keys(currentChecklistDraft.items);
+            const flKey = allKeys.find(k => k.toLowerCase().includes('front left') || k.toLowerCase().includes('(fl)')) || 'Tyre — Front Left (FL)';
+            const flData = currentChecklistDraft.items[flKey] || {};
+
+            const fourTyres = [
+                'Tyre — Front Left (FL)',
+                'Tyre — Front Right (FR)',
+                'Tyre — Rear Left (RL)',
+                'Tyre — Rear Right (RR)'
+            ];
+
+            const fieldsToCopy = ['tyre_make', 'tyre_model', 'tyre_size', 'mfg_week', 'mfg_year', 'tread_depth', 'tread_condition', 'sidewall_condition', 'note'];
+
+            let count = 0;
+            fourTyres.forEach(tName => {
+                if (!currentChecklistDraft.items[tName]) {
+                    currentChecklistDraft.items[tName] = { photos: [] };
+                }
+                fieldsToCopy.forEach(f => {
+                    if (flData[f] !== undefined && flData[f] !== '') {
+                        currentChecklistDraft.items[tName][f] = flData[f];
+                        count++;
+                    }
+                });
+            });
+
+            saveDraft(activeBookingId, currentChecklistDraft);
+            showToast('📋 Front Left specs copied to all 4 tyres! All remain fully editable.', false);
+            renderChecklistForCategory();
         };
 
         window.removePhoto = (itemName, photoIdx) => {
