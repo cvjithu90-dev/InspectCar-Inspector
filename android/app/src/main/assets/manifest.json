@@ -1,0 +1,10 @@
+{
+  "name": "InspectCar Inspector",
+  "short_name": "InspectCar",
+  "description": "InspectCar Inspector App",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0A0A14",
+  "theme_color": "#6366F1",
+  "icons": [{"src": "icon.png", "sizes": "192x192", "type": "image/png"}]
+}

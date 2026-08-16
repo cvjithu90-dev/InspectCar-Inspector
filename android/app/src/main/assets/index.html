@@ -1,0 +1,1843 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>InspectCar Inspector PWA</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#6366F1">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root {
+            --bg-color: #0A0A14;
+            --surface-color: #12121E;
+            --surface-hover: #1A1A2B;
+            --accent-color: #6366F1;
+            --accent-gradient: linear-gradient(135deg, #6366F1, #8B5CF6);
+            --success-color: #10B981;
+            --warning-color: #F59E0B;
+            --danger-color: #EF4444;
+            --text-color: #F4F4F6;
+            --text-muted: #9CA3AF;
+            --border-color: #26263A;
+            --nav-height: 64px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            overflow-x: hidden;
+            padding-bottom: var(--nav-height);
+            min-height: 100vh;
+        }
+
+        .screen {
+            display: none;
+            padding: 1rem;
+            min-height: calc(100vh - var(--nav-height));
+        }
+
+        .screen.active {
+            display: block;
+        }
+
+        /* Utility */
+        .card {
+            background-color: var(--surface-color);
+            border-radius: 12px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border: 1px solid var(--border-color);
+        }
+
+        .btn {
+            display: inline-block;
+            width: 100%;
+            padding: 0.85rem 1rem;
+            background: var(--accent-gradient);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            text-align: center;
+            cursor: pointer;
+            text-decoration: none;
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--accent-color);
+            color: var(--accent-color);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.08);
+            color: white;
+        }
+
+        .input-group {
+            margin-bottom: 1rem;
+        }
+
+        .input-group label {
+            display: block;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-bottom: 0.35rem;
+        }
+
+        .input-group input, .input-group select, .input-group textarea {
+            width: 100%;
+            padding: 0.75rem;
+            background-color: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: white;
+            font-size: 0.95rem;
+        }
+
+        .input-group input:focus, .input-group select:focus, .input-group textarea:focus {
+            outline: none;
+            border-color: var(--accent-color);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.6rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .badge-pending { background: rgba(245, 158, 11, 0.2); color: var(--warning-color); }
+        .badge-assigned { background: rgba(99, 102, 241, 0.2); color: var(--accent-color); }
+        .badge-completed { background: rgba(16, 185, 129, 0.2); color: var(--success-color); }
+
+        /* Header */
+        .header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .back-btn {
+            background: none;
+            border: none;
+            color: var(--text-color);
+            font-size: 1.25rem;
+            cursor: pointer;
+            text-decoration: none;
+        }
+
+        /* Bottom Nav */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: var(--nav-height);
+            background-color: var(--surface-color);
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            z-index: 100;
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.7rem;
+            gap: 4px;
+        }
+
+        .nav-item.active {
+            color: var(--accent-color);
+        }
+
+        .nav-icon {
+            font-size: 1.2rem;
+        }
+
+        /* Checklist Tab Bar */
+        .category-tabs {
+            display: flex;
+            overflow-x: auto;
+            gap: 8px;
+            padding-bottom: 8px;
+            margin-bottom: 1rem;
+            scrollbar-width: none;
+        }
+
+        .category-tabs::-webkit-scrollbar {
+            display: none;
+        }
+
+        .cat-tab {
+            padding: 8px 14px;
+            background: var(--surface-color);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            font-size: 0.8rem;
+            white-space: nowrap;
+            cursor: pointer;
+            color: var(--text-muted);
+        }
+
+        .cat-tab.active {
+            background: var(--accent-color);
+            color: white;
+            border-color: var(--accent-color);
+            font-weight: 600;
+        }
+
+        /* Checklist Item Card */
+        .check-item {
+            background: var(--surface-color);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 12px;
+        }
+
+        .check-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .status-btns {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 6px;
+            margin-bottom: 10px;
+        }
+
+        .status-btn {
+            padding: 8px 4px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-align: center;
+            cursor: pointer;
+        }
+
+        .status-btn.selected[data-val="pass"] { background: rgba(16, 185, 129, 0.2); color: #34D399; border-color: #10B981; }
+        .status-btn.selected[data-val="warn"] { background: rgba(245, 158, 11, 0.2); color: #FBBF24; border-color: #F59E0B; }
+        .status-btn.selected[data-val="fail"] { background: rgba(239, 68, 68, 0.2); color: #F87171; border-color: #EF4444; }
+        .status-btn.selected[data-val="na"] { background: rgba(156, 163, 175, 0.2); color: #D1D5DB; border-color: #9CA3AF; }
+
+        .item-fields-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .photos-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .photo-thumb {
+            position: relative;
+            width: 60px;
+            height: 60px;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid var(--accent-color);
+        }
+
+        .photo-thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .photo-thumb .del-photo {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            background: rgba(0,0,0,0.7);
+            color: #EF4444;
+            border: none;
+            border-radius: 50%;
+            width: 18px;
+            height: 18px;
+            font-size: 10px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .add-photo-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(99, 102, 241, 0.15);
+            border: 1px dashed var(--accent-color);
+            color: var(--text-color);
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            margin-top: 8px;
+        }
+
+        .add-photo-btn input { display: none; }
+
+        /* Loader & Toast */
+        #fullscreen-loader {
+            position: fixed;
+            top:0; left:0; right:0; bottom:0;
+            background: rgba(10, 10, 20, 0.85);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-top-color: var(--accent-color);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        #toast {
+            position: fixed;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1A1A2E;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            border: 1px solid var(--accent-color);
+            display: none;
+            z-index: 9999;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            text-align: center;
+            max-width: 90%;
+        }
+
+        #toast.show { display: block; }
+        .hidden { display: none !important; }
+        .text-center { text-align: center; }
+        .mt-2 { margin-top: 1rem; }
+        .mb-2 { margin-bottom: 1rem; }
+        .flex { display: flex; }
+        .justify-between { justify-content: space-between; }
+        .items-center { align-items: center; }
+    </style>
+</head>
+<body>
+
+    <!-- Toast Notification -->
+    <div id="toast">Notification message</div>
+
+    <!-- Fullscreen Loader -->
+    <div id="fullscreen-loader" class="hidden">
+        <div class="spinner"></div>
+        <p style="margin-top: 1rem; font-size: 0.9rem;" id="loader-text">Loading...</p>
+    </div>
+
+    <div id="app">
+        <!-- Screen 1: Login -->
+        <div id="login-screen" class="screen active">
+            <div style="text-align: center; margin-top: 3rem; margin-bottom: 2rem;">
+                <div style="font-size: 3rem; margin-bottom: 0.5rem;">🔍</div>
+                <h1 style="font-size: 1.8rem; font-weight: 800;">Inspect<span>Car</span></h1>
+                <p style="color: var(--text-muted); font-size: 0.9rem;">Inspector Application</p>
+            </div>
+            
+            <div class="card">
+                <form id="login-form" onsubmit="handleInspectorSignIn(event)">
+                    <div class="input-group">
+                        <label>Inspector Email</label>
+                        <input type="email" id="login-email" placeholder="inspector@inspectcar.in" required>
+                    </div>
+                    <div class="input-group">
+                        <label>Password</label>
+                        <input type="password" id="login-password" placeholder="••••••••" required>
+                    </div>
+                    <button type="submit" class="btn mt-2" id="login-btn">Sign In</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Screen 2: Home -->
+        <div id="home-screen" class="screen with-nav">
+            <div class="flex justify-between items-center mb-2">
+                <div>
+                    <h2 id="home-greeting" style="font-size: 1.2rem;">Good Morning</h2>
+                    <p id="home-date" style="color: var(--text-muted); font-size: 0.8rem;">Today's Assignments</p>
+                </div>
+                <div style="background: var(--surface-color); padding: 6px 12px; border-radius: 20px; font-size: 0.75rem; border: 1px solid var(--border-color);">
+                    🟢 Inspector Active
+                </div>
+            </div>
+
+            <div class="card flex justify-between text-center" style="padding: 0.75rem;">
+                <div>
+                    <div style="font-size: 1.2rem; font-weight: 700; color: var(--accent-color);" id="stat-total">0</div>
+                    <div style="font-size: 0.7rem; color: var(--text-muted);">Assigned</div>
+                </div>
+                <div style="width: 1px; background: var(--border-color);"></div>
+                <div>
+                    <div style="font-size: 1.2rem; font-weight: 700; color: var(--success-color);" id="stat-comp">0</div>
+                    <div style="font-size: 0.7rem; color: var(--text-muted);">Completed</div>
+                </div>
+                <div style="width: 1px; background: var(--border-color);"></div>
+                <div>
+                    <div style="font-size: 1.2rem; font-weight: 700; color: var(--warning-color);" id="stat-pend">0</div>
+                    <div style="font-size: 0.7rem; color: var(--text-muted);">Pending</div>
+                </div>
+            </div>
+
+            <h3 style="font-size: 1rem; margin-bottom: 0.75rem;">Today's Assignments</h3>
+            <div id="today-bookings-list"></div>
+
+            <h3 style="font-size: 1rem; margin-top: 1.5rem; margin-bottom: 0.75rem;">Upcoming Jobs</h3>
+            <div id="upcoming-bookings-list"></div>
+        </div>
+
+        <!-- Screen 3: Inspection Checklist -->
+        <div id="inspection-screen" class="screen">
+            <div class="header">
+                <a href="#/home" class="back-btn">←</a>
+                <div>
+                    <h2 style="margin:0; font-size:1.1rem" id="insp-header-title">Booking #...</h2>
+                    <p style="margin:0; font-size:0.8rem; color:var(--text-muted)" id="insp-header-sub">Vehicle</p>
+                </div>
+            </div>
+
+            <div style="background: var(--surface-color); border-radius: 8px; height: 8px; width: 100%; overflow: hidden; margin-bottom: 8px;">
+                <div id="insp-progress" style="width: 0%; height: 100%; background: var(--accent-gradient); transition: width 0.3s;"></div>
+            </div>
+            <p class="text-center mb-2" style="font-size: 0.75rem; color: var(--text-muted);" id="insp-progress-text">0% Completed</p>
+
+            <div class="category-tabs" id="category-tabs">
+                <!-- Tabs rendered here -->
+            </div>
+
+            <div id="checklist-items-container">
+                <!-- Checklist items rendered here -->
+            </div>
+            
+            <button class="btn mt-2" id="finish-inspection-btn">Review &amp; Submit Checklist</button>
+        </div>
+
+        <!-- Screen 4: Summary & Submission -->
+        <div id="summary-screen" class="screen">
+            <div class="header">
+                <a href="javascript:void(0)" id="back-to-checklist" class="back-btn">←</a>
+                <h2 style="margin:0; font-size:1.1rem">Submit Inspection</h2>
+            </div>
+
+            <div class="card text-center" style="padding: 1.5rem 1rem; border: 1px solid var(--accent-color);">
+                <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">📋</div>
+                <h3 id="submit-vehicle-name" style="margin:0; font-size: 1.2rem;">Vehicle Inspection</h3>
+                <p id="submit-booking-ref" style="color: var(--text-muted); font-size: 0.85rem; margin-top: 4px;">Ref: --</p>
+                <div id="submit-items-badge" class="badge badge-completed" style="display:inline-block; font-size: 0.85rem; padding: 6px 14px; margin-top: 10px;">
+                    0 Points Inspected
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="input-group" style="margin:0;">
+                    <label>General Inspector Notes / Remarks</label>
+                    <textarea id="report-notes" rows="4" placeholder="Enter overall remarks, key observations, or seller comments..."></textarea>
+                </div>
+            </div>
+
+            <button class="btn mt-2" id="submit-report-btn" style="background: linear-gradient(135deg, #10b981, #059669);">
+                🚀 Submit Inspection to Admin
+            </button>
+        </div>
+
+        <!-- Screen: Bookings List -->
+        <div id="bookings-screen" class="screen with-nav">
+            <h2 style="margin-bottom: 1rem;">All Assigned Bookings</h2>
+            <div id="all-bookings-list"></div>
+        </div>
+
+        <!-- Screen: Reports History -->
+        <div id="reports-screen" class="screen with-nav">
+            <h2 style="margin-bottom: 1rem;">My Submitted Inspections</h2>
+            <div id="reports-list"></div>
+        </div>
+
+        <!-- Screen: Profile -->
+        <div id="profile-screen" class="screen with-nav">
+            <h2 style="margin-bottom: 1rem;">Profile</h2>
+            <div class="card text-center" style="padding: 2rem 1rem;">
+                <div style="width:80px; height:80px; background:var(--accent-gradient); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:2rem; margin:0 auto 1rem;">👤</div>
+                <h3 id="prof-name">Inspector Name</h3>
+                <p id="prof-email" style="color:var(--text-muted); margin-bottom: 1rem;">email@example.com</p>
+                <button class="btn btn-outline" id="logout-btn">Sign Out</button>
+            </div>
+        </div>
+
+        <!-- Bottom Navigation -->
+        <div class="bottom-nav" id="bottom-nav" style="display:none;">
+            <a href="#/home" class="nav-item active" data-tab="home">
+                <span class="nav-icon">🏠</span>
+                <span>Home</span>
+            </a>
+            <a href="#/bookings" class="nav-item" data-tab="bookings">
+                <span class="nav-icon">📋</span>
+                <span>Jobs</span>
+            </a>
+            <a href="#/reports" class="nav-item" data-tab="reports">
+                <span class="nav-icon">📊</span>
+                <span>Reports</span>
+            </a>
+            <a href="#/profile" class="nav-item" data-tab="profile">
+                <span class="nav-icon">👤</span>
+                <span>Profile</span>
+            </a>
+        </div>
+    </div>
+
+    <script>
+        // --- Configuration ---
+        const SUPABASE_URL = 'https://fklauiwughygdpvfylwg.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZrbGF1aXd1Z2h5Z2RwdmZ5bHdnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyMjA0MjIsImV4cCI6MjEwMDc5NjQyMn0.t4KEH1g9TZTW8DgG1rpAU0fFVHXvmcEv86s0w7_jHdA';
+        var dbClient = (window.supabase && typeof window.supabase.createClient === 'function') ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+        var supabase = dbClient;
+
+        // Master Checklist Dataset
+        const CHECKLIST_CATEGORIES = [
+            {
+                name: 'Baseline Photos & Docs',
+                type: 'baseline',
+                items: [
+                    'Exterior Baseline Photos',
+                    'RC Details',
+                    'PUC Certificate',
+                    'Insurance Certificate',
+                    'Interior overview (front & rear)',
+                    'VIN plate & odometer close-ups',
+                    'Cluster warning lamps photo (Ignition ON)'
+                ]
+            },
+            {
+                name: 'Exterior Structure & Trim',
+                items: [
+                    'Front Bumper: Defects',
+                    'Front Bumper: Fitment',
+                    'Hood/Bonnet: Defects',
+                    'Hood/Bonnet: Fitment',
+                    'Roof: Defects',
+                    'Roof: Fitment',
+                    'Front grille condition',
+                    'Emblems / Badges present & correct',
+                    'Fender Left: Defects',
+                    'Door Front Left: Defects',
+                    'Door Rear Left: Defects',
+                    'Quarter Left: Defects',
+                    'Rear Bumper: Defects',
+                    'Rear Bumper: Fitment',
+                    'Fender Right: Defects',
+                    'Door Front Right: Defects',
+                    'Door Rear Right: Defects',
+                    'Rear Right door handle: physical',
+                    'VIN plate / rivets tamper signs',
+                    'Fender / Door / Quarter / Pillar fitment (L & R)',
+                    'Trunk / Tailgate: Defects & Fitment',
+                    'Fuel lid / door condition & hinge',
+                    'Left / Right ORVM housing condition'
+                ]
+            },
+            {
+                name: 'Glass & Mirrors',
+                items: [
+                    'Front windshield: chips / cracks',
+                    'Front windshield: wiper-arc scratches / haze',
+                    'Front windshield seal / garnish condition',
+                    'Left / Right ORVM mirror glass',
+                    'FL / FR door window glass condition',
+                    'RL / RR door window glass condition',
+                    'Rear windshield: chips / cracks',
+                    'Rear defogger lines (continuity)',
+                    'Rear windshield seal / garnish condition',
+                    'Sunroof glass condition'
+                ]
+            },
+            {
+                name: 'Paint Thickness Assessment',
+                items: [
+                    'Front Bumper',
+                    'Hood/Bonnet',
+                    'Roof',
+                    'Fender Left',
+                    'Door Front Left',
+                    'Door Rear Left',
+                    'Quarter Left',
+                    'Pillars Left (A/B/C)',
+                    'Rear Bumper',
+                    'Trunk/Tailgate',
+                    'Fender Right',
+                    'Door Front Right',
+                    'Door Rear Right',
+                    'Quarter Right',
+                    'Pillars Right (A/B/C)'
+                ]
+            },
+            {
+                name: 'Tyres, Wheels & Brakes',
+                items: [
+                    'Tyre valve / nozzle — FL',
+                    'Tyre valve / nozzle — FR / RL',
+                    'Tyre sidewall / tread defects (all 4)',
+                    'Wheel rim condition (all 4)',
+                    'Mud / silt under carpets (front & rear)',
+                    'Seat rail rust / pitting',
+                    'Under-dash wiring oxidation / green patina',
+                    'Brake rotor visual (lip / scoring)',
+                    'Brake pad visual (thickness)'
+                ]
+            },
+            {
+                name: 'Water / Accident Exposure',
+                items: [
+                    'Trunk / spare well moisture or smell',
+                    'Door drain holes clear',
+                    'Headlamp / taillamp condensation',
+                    'Engine bay mud / rust at lower members',
+                    'Wiring / fusebox water marks',
+                    'Underbody waterline / oxidation patterns',
+                    'Structural welds / overspray / panel replacement signs',
+                    'Seat mount bolts & seat base waterline',
+                    'Trunk side cavities / quarter pockets moisture'
+                ]
+            },
+            {
+                name: 'Under Hood — Engine OFF',
+                items: [
+                    'Battery terminals & hold-down',
+                    'Belts visual (cracks / fray)',
+                    'Coolant reservoir / brake fluid level',
+                    'Washer fluid level',
+                    'Visible wiring / hoses condition',
+                    'Battery resting voltage (engine OFF)',
+                    'Engine mounts visual condition',
+                    'Power steering fluid level'
+                ]
+            },
+            {
+                name: 'Interior Trim & Fixtures',
+                items: [
+                    'Front & rear seats: cushioning, upholstery, adjustments, seatbelts',
+                    '2nd & 3rd row: fold / slide / tumble access',
+                    'Dashboard panels & instrument cluster lens',
+                    'Carpet fitment & cleanliness',
+                    'Roof lining condition',
+                    'Glovebox, center console & door pockets',
+                    'Interior rear-view mirror (mount / flip)'
+                ]
+            },
+            {
+                name: 'Interior Electricals & HVAC',
+                items: [
+                    'Cabin lights (front & rear rows)',
+                    'Window & lock switches (all doors)',
+                    'Touchscreen, audio, Bluetooth / USB / FM',
+                    'Reverse camera / parking sensors',
+                    'AC cooling at center vents',
+                    'Heater output',
+                    'AC odour on start',
+                    'Wiper controls, horn, hazard / defogger switches',
+                    'Cluster warning lamps status (Ignition ON)'
+                ]
+            },
+            {
+                name: 'Driving Controls & Driver Aids',
+                items: [
+                    'Steering wheel condition (rim / stitching)',
+                    'Steering free play (static) / adjust',
+                    'Gear selector movement (PRND / pattern)',
+                    'Hand / parking brake',
+                    'Drive mode switch (Eco/Normal/Sport)',
+                    'Pedal rubbers condition',
+                    'Steering-mounted controls',
+                    'Brake pedal feel (static)'
+                ]
+            },
+            {
+                name: 'Lighting',
+                items: [
+                    'Headlamps (low / high)',
+                    'DRL / Parking lights',
+                    'Indicators / hazards',
+                    'Brake lights (incl. CHMSL)',
+                    'Reverse lights',
+                    'Fog lamps (front / rear)'
+                ]
+            },
+            {
+                name: 'Under Hood — Engine ON',
+                items: [
+                    'Idle quality / vibration',
+                    'Idle RPM (spec)',
+                    'Cooling fan operation',
+                    'Accessory belt noises',
+                    'Visible leaks at idle',
+                    'Charging voltage (idle, lights & AC ON)'
+                ]
+            },
+            {
+                name: 'Tyre Data',
+                type: 'tyre',
+                items: [
+                    'Tyre — Front Left (FL)',
+                    'Tyre — Front Right (FR)',
+                    'Tyre — Rear Left (RL)',
+                    'Tyre — Rear Right (RR)',
+                    'Spare Tyre'
+                ]
+            }
+        ];
+
+        // State
+        let currentUser = null;
+        let currentProfile = null;
+        let activeBookingId = null;
+        let currentChecklistDraft = {};
+        let activeCategoryIndex = 0;
+        let bookingsCache = [];
+        let currentLocationGps = null;
+
+        // Core UI Functions
+        function showToast(msg, isError = false) {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.style.borderColor = isError ? 'var(--danger-color)' : 'var(--success-color)';
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        function showLoader(text = 'Loading...') {
+            document.getElementById('loader-text').textContent = text;
+            document.getElementById('fullscreen-loader').classList.remove('hidden');
+        }
+        function hideLoader() {
+            document.getElementById('fullscreen-loader').classList.add('hidden');
+        }
+
+        function navigateToScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            const target = document.getElementById(`${screenId}-screen`);
+            if (target) target.classList.add('active');
+            
+            const withNav = target ? target.classList.contains('with-nav') : false;
+            document.getElementById('bottom-nav').style.display = withNav ? 'flex' : 'none';
+            
+            if(withNav) {
+                document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+                const activeNav = document.querySelector(`.nav-item[data-tab="${screenId}"]`);
+                if(activeNav) activeNav.classList.add('active');
+            }
+        }
+
+        // Routing
+        window.addEventListener('hashchange', handleRoute);
+        
+        async function handleRoute() {
+            hideLoader();
+            try {
+                const hash = window.location.hash || '';
+                
+                let session = null;
+                if (supabase && supabase.auth) {
+                    try {
+                        const { data } = await supabase.auth.getSession();
+                        session = data ? data.session : null;
+                    } catch (e) {}
+                }
+
+                const isAuthenticated = session || currentUser;
+
+                if (!isAuthenticated) {
+                    navigateToScreen('login');
+                    return;
+                } else if (session && !currentUser) {
+                    currentUser = session.user;
+                    await loadUserProfile();
+                    setupRealtime();
+                }
+
+                if (hash === '' || hash === '#/login') { window.location.hash = '#/home'; return; }
+
+                if (hash === '#/home') {
+                    loadHomeData();
+                    navigateToScreen('home');
+                } else if (hash === '#/bookings') {
+                    loadBookingsList();
+                    navigateToScreen('bookings');
+                } else if (hash === '#/reports') {
+                    loadReportsList();
+                    navigateToScreen('reports');
+                } else if (hash === '#/profile') {
+                    renderProfile();
+                    navigateToScreen('profile');
+                } else if (hash.startsWith('#/inspection/')) {
+                    activeBookingId = hash.replace('#/inspection/', '');
+                    loadInspectionScreen();
+                    navigateToScreen('inspection');
+                } else if (hash.startsWith('#/summary/')) {
+                    activeBookingId = hash.replace('#/summary/', '');
+                    loadSummaryScreen();
+                    navigateToScreen('summary');
+                } else {
+                    navigateToScreen('home');
+                }
+            } catch (err) {
+                console.error("handleRoute error:", err);
+                navigateToScreen('login');
+            } finally {
+                hideLoader();
+            }
+        }
+
+        // Auth
+        window.handleInspectorSignIn = async function(e) {
+            if (e) e.preventDefault();
+            const email = document.getElementById('login-email')?.value;
+            const password = document.getElementById('login-password')?.value;
+            const btn = document.getElementById('login-btn');
+
+            if (!email || !password) {
+                showToast('Please enter email & password', true);
+                return;
+            }
+            
+            if (btn) {
+                btn.innerHTML = 'Signing in...';
+                btn.disabled = true;
+            }
+
+            try {
+                const client = dbClient || window.supabase;
+                if (!client) {
+                    showToast('Database connection unavailable', true);
+                    return;
+                }
+                const { data, error } = await client.auth.signInWithPassword({ email, password });
+                
+                if (error) {
+                    showToast(error.message, true);
+                } else if (data && data.user) {
+                    currentUser = data.user;
+                    const isAuthorized = await loadUserProfile();
+                    if (isAuthorized) {
+                        showToast('Login successful!');
+                        window.location.hash = '#/home';
+                        await handleRoute();
+                    }
+                }
+            } catch(err) {
+                console.error("Inspector login error:", err);
+                showToast(err.message || 'Access Denied', true);
+            } finally {
+                if (btn) {
+                    btn.innerHTML = 'Sign In';
+                    btn.disabled = false;
+                }
+                hideLoader();
+            }
+        };
+
+        document.getElementById('logout-btn').addEventListener('click', async () => {
+            const client = dbClient || window.supabase;
+            if(client && client.auth) await client.auth.signOut();
+            currentUser = null;
+            currentProfile = null;
+            window.location.hash = '';
+            handleRoute();
+        });
+
+        async function loadUserProfile() {
+            const client = dbClient || window.supabase;
+            if(!client || !currentUser) return false;
+
+            try {
+                let { data } = await client.from('profiles').select('*').eq('id', currentUser.id).maybeSingle();
+                
+                if (!data) {
+                    const name = (currentUser.user_metadata && currentUser.user_metadata.full_name) 
+                        ? currentUser.user_metadata.full_name 
+                        : (currentUser.email ? currentUser.email.split('@')[0] : 'Inspector');
+                    
+                    const role = (currentUser.email && currentUser.email.toLowerCase().trim() === 'cvjithu90@gmail.com') ? 'admin' : 'inspector';
+
+                    const { data: newProf } = await client.from('profiles').upsert({
+                        id: currentUser.id,
+                        full_name: name,
+                        role: role,
+                        is_active: true
+                    }).select().maybeSingle();
+
+                    data = newProf || { id: currentUser.id, full_name: name, role: role, is_active: true };
+                }
+
+                if (data && data.is_active === false) {
+                    if (client && client.auth) await client.auth.signOut();
+                    currentUser = null;
+                    currentProfile = null;
+                    throw new Error("Account deactivated.");
+                }
+
+                currentProfile = data;
+                return true;
+            } catch(e) {
+                currentProfile = { id: currentUser.id, full_name: currentUser.email ? currentUser.email.split('@')[0] : 'Inspector', role: 'inspector', is_active: true };
+                return true;
+            }
+        }
+
+        // Data Loading
+        async function fetchBookings() {
+            const client = dbClient || window.supabase;
+            if (!client || !currentUser) return [];
+
+            try {
+                let query = client.from('bookings').select('*').order('inspection_date', { ascending: true });
+                if (currentProfile && currentProfile.role === 'inspector') {
+                    query = query.eq('inspector_id', currentProfile.id);
+                }
+                const { data, error } = await query;
+                if (error) {
+                    bookingsCache = [];
+                    return [];
+                }
+                bookingsCache = data || [];
+                return bookingsCache;
+            } catch(e) {
+                return [];
+            }
+        }
+
+        function getDraft(bookingId) {
+            try {
+                const d = localStorage.getItem(`draft_${bookingId}`);
+                if (!d) return { items: {} };
+                const parsed = JSON.parse(d);
+                if (!parsed || typeof parsed !== 'object' || !parsed.items) return { items: {} };
+                return parsed;
+            } catch(e) {
+                return { items: {} };
+            }
+        }
+        function saveDraft(bookingId, draft) {
+            try {
+                localStorage.setItem(`draft_${bookingId}`, JSON.stringify(draft));
+            } catch(e) {}
+        }
+
+        // Home Screen
+        async function loadHomeData() {
+            const bookings = await fetchBookings();
+            
+            document.getElementById('home-greeting').textContent = `Good Morning, ${currentProfile?.full_name?.split(' ')[0] || 'Inspector'}`;
+            const todayStr = new Date().toISOString().split('T')[0];
+            document.getElementById('home-date').textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+
+            const todayBookings = bookings.filter(b => b.inspection_date === todayStr);
+            const comp = todayBookings.filter(b => b.status === 'completed').length;
+            
+            document.getElementById('stat-total').textContent = todayBookings.length;
+            document.getElementById('stat-comp').textContent = comp;
+            document.getElementById('stat-pend').textContent = todayBookings.length - comp;
+
+            renderBookingsList('today-bookings-list', todayBookings.filter(b => b.status !== 'completed'), 'No pending jobs today.');
+            
+            const upcoming = bookings.filter(b => b.inspection_date > todayStr && b.status !== 'completed').slice(0, 5);
+            renderBookingsList('upcoming-bookings-list', upcoming, 'No upcoming jobs.');
+        }
+
+        function renderBookingsList(containerId, list, emptyMsg) {
+            const container = document.getElementById(containerId);
+            if(!container) return;
+            if(list.length === 0) {
+                container.innerHTML = `<p class="text-center" style="color:var(--text-muted); font-size:0.85rem; padding:1rem;">${emptyMsg}</p>`;
+                return;
+            }
+
+            container.innerHTML = list.map(b => `
+                <div class="card" onclick="window.location.hash='#/inspection/${b.id}'" style="cursor:pointer">
+                    <div class="flex justify-between items-center mb-2">
+                        <span style="font-weight:600">Ref: ${b.booking_ref}</span>
+                        <span class="badge badge-${b.status === 'completed' ? 'completed' : 'pending'}">${b.status.toUpperCase()}</span>
+                    </div>
+                    <div style="font-size:1.1rem; font-weight:600; margin-bottom:4px;">${b.vehicle_brand} ${b.vehicle_model}</div>
+                    <p style="margin:0; font-size:0.85rem; color:var(--text-muted)">
+                        👤 ${b.customer_name} • 📍 ${b.area || b.location_type || 'Location'}<br>
+                        📅 ${b.inspection_date} 🕒 ${b.inspection_time}
+                    </p>
+                </div>
+            `).join('');
+        }
+
+        async function loadBookingsList() {
+            const bookings = await fetchBookings();
+            renderBookingsList('all-bookings-list', bookings.filter(b => b.status !== 'completed'), 'No active bookings.');
+        }
+
+        // --- Inspection Screen ---
+        async function loadInspectionScreen() {
+            if(!bookingsCache.length) await fetchBookings();
+            const booking = bookingsCache.find(b => b.id == activeBookingId);
+            if(!booking) { showToast('Booking not found', true); window.location.hash='#/home'; return; }
+
+            document.getElementById('insp-header-title').textContent = `Ref: ${booking.booking_ref}`;
+            document.getElementById('insp-header-sub').textContent = `${booking.vehicle_brand} ${booking.vehicle_model}`;
+
+            currentChecklistDraft = getDraft(activeBookingId);
+
+            // Fetch GPS Location automatically
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition((pos) => {
+                    currentLocationGps = `${pos.coords.latitude.toFixed(6)}, ${pos.coords.longitude.toFixed(6)}`;
+                }, (err) => {
+                    console.warn("GPS error:", err.message);
+                });
+            }
+
+            // Restore from Supabase if draft empty
+            if (!currentChecklistDraft.items || Object.keys(currentChecklistDraft.items).length === 0) {
+                const client = dbClient || window.supabase;
+                if (client) {
+                    try {
+                        const { data: existingAnswers } = await client.from('inspection_answers').select('*').eq('booking_id', activeBookingId);
+                        const { data: existingPhotos } = await client.from('inspection_photos').select('*').eq('booking_id', activeBookingId);
+
+                        if (existingAnswers && existingAnswers.length > 0) {
+                            currentChecklistDraft = { items: {} };
+                            existingAnswers.forEach(ans => {
+                                const photos = (existingPhotos || []).filter(p => p.item_name === ans.item_name).map(p => p.photo_url);
+                                currentChecklistDraft.items[ans.item_name] = {
+                                    status: ans.answer,
+                                    severity: ans.severity || 'low',
+                                    note: ans.remarks || '',
+                                    paint_thickness: ans.paint_thickness || '',
+                                    obd_value: ans.obd_value || '',
+                                    photos: photos
+                                };
+                            });
+                            saveDraft(activeBookingId, currentChecklistDraft);
+                        }
+                    } catch(e) {}
+                }
+            }
+
+            renderCategoryTabs();
+            renderChecklistForCategory();
+            updateProgress();
+            
+            document.getElementById('finish-inspection-btn').onclick = () => {
+                window.location.hash = `#/summary/${activeBookingId}`;
+            };
+        }
+
+        function renderCategoryTabs() {
+            const tabsContainer = document.getElementById('category-tabs');
+            tabsContainer.innerHTML = CHECKLIST_CATEGORIES.map((cat, idx) => `
+                <div class="cat-tab ${idx === activeCategoryIndex ? 'active' : ''}" onclick="switchCategory(${idx})">
+                    ${cat.name}
+                </div>
+            `).join('');
+        }
+
+        window.switchCategory = (idx) => {
+            activeCategoryIndex = idx;
+            renderCategoryTabs();
+            renderChecklistForCategory();
+        };
+
+        function renderChecklistForCategory() {
+            const container = document.getElementById('checklist-items-container');
+            const cat = CHECKLIST_CATEGORIES[activeCategoryIndex];
+            
+            const isPaintCategory = cat.name.includes('Paint');
+            const isEngineObdCategory = cat.name.includes('Hood') || cat.name.includes('Electrical');
+            const isTyreCategory = cat.type === 'tyre';
+            const isBaselineCategory = cat.type === 'baseline';
+
+            // ── Baseline Photos: photo-capture only, no Pass/Fail ────────
+            if (isBaselineCategory) {
+                container.innerHTML = cat.items.map(item => {
+                    const isExterior = item === 'Exterior Baseline Photos';
+                    const draft = currentChecklistDraft.items[item] || {};
+
+                    if (isExterior) {
+                        // 4-slot exterior grid — one item, 4 labelled slots
+                        const slots = [
+                            { key: 'front',  label: 'Front View',      icon: '⬆' },
+                            { key: 'rear',   label: 'Rear View',       icon: '⬇' },
+                            { key: 'left',   label: 'Left Side View',   icon: '◀' },
+                            { key: 'right',  label: 'Right Side View',  icon: '▶' }
+                        ];
+                        const slotsHtml = slots.map(slot => {
+                            const slotDraft = currentChecklistDraft.items['Exterior Baseline Photos_' + slot.key] || {};
+                            const photos = slotDraft.photos || [];
+                            const thumbs = photos.map((p, pi) => `
+                                <div class="photo-thumb" style="width:100%;height:80px;">
+                                    <img src="${p}" style="width:100%;height:80px;object-fit:cover;border-radius:6px;">
+                                    <button class="del-photo" onclick="removePhoto('${('Exterior Baseline Photos_' + slot.key).replace(/'/g,"\\'")}',${pi})">✕</button>
+                                </div>`).join('');
+                            return `
+                            <div style="background:rgba(139,92,246,0.08);border:1px dashed #8b5cf6;border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:6px;">
+                                <div style="font-size:0.78rem;font-weight:700;color:#a78bfa;">${slot.icon} ${slot.label}</div>
+                                ${thumbs}
+                            <div style="display:flex;gap:6px;margin-top:6px;">
+                                <label style="flex:1;display:flex;align-items:center;justify-content:center;gap:4px;background:rgba(139,92,246,0.25);border:1px solid #8b5cf6;border-radius:6px;padding:7px 4px;cursor:pointer;font-size:0.75rem;color:#c4b5fd;font-weight:600;">
+                                    📸 Camera
+                                    <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="handleAddPhoto(event,'${('Exterior Baseline Photos_' + slot.key).replace(/'/g,"\\'")}')">
+                                </label>
+                                <label style="flex:1;display:flex;align-items:center;justify-content:center;gap:4px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.18);border-radius:6px;padding:7px 4px;cursor:pointer;font-size:0.75rem;color:#e2e8f0;font-weight:600;">
+                                    📁 Gallery
+                                    <input type="file" accept="image/*" style="display:none;" onchange="handleAddPhoto(event,'${('Exterior Baseline Photos_' + slot.key).replace(/'/g,"\\'")}')">
+                                </label>
+                            </div>
+                            </div>`;
+                        }).join('');
+                        return `
+                        <div class="check-item" style="border-left:3px solid #8b5cf6;">
+                            <div class="check-item-header">
+                                <span style="font-weight:700;font-size:0.95rem;">📸 Exterior Baseline Photos</span>
+                                <span style="font-size:0.75rem;color:#6b7280;">4 angles — Front, Rear, Left, Right</span>
+                            </div>
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;">${slotsHtml}</div>
+                            <input type="text" placeholder="Overall exterior remarks..." value="${draft.note||''}"
+                                onchange="setNote('Exterior Baseline Photos',this.value)"
+                                style="width:100%;margin-top:10px;font-size:0.85rem;padding:6px 10px;background:rgba(255,255,255,0.05);border:1px solid var(--border-color);color:white;border-radius:6px;">
+                        </div>`;
+                    }
+
+                    // Standard doc/photo items (RC, PUC etc.)
+                    const photos = draft.photos || [];
+                    const photosHtml = photos.map((pUrl, pIdx) => `
+                        <div class="photo-thumb">
+                            <img src="${pUrl}" alt="Photo">
+                            <button class="del-photo" onclick="removePhoto('${item.replace(/'/g,"\\'")}',${pIdx})">✕</button>
+                        </div>
+                    `).join('');
+                    return `
+                    <div class="check-item" style="border-left:3px solid #374151;">
+                        <div class="check-item-header">
+                            <span style="font-weight:700;font-size:0.95rem;">📄 ${item}</span>
+                            ${photos.length > 0 ? `<span class="badge badge-completed">📷 ${photos.length} Photo${photos.length>1?'s':''}</span>` : ''}
+                        </div>
+                        <div class="photos-grid">${photosHtml}</div>
+                        <input type="text" placeholder="Remarks / Observations..." value="${draft.note||''}"
+                            onchange="setNote('${item.replace(/'/g,"\\'")}',${''}this.value)"
+                            style="width:100%;margin-top:8px;font-size:0.85rem;padding:6px 10px;background:rgba(255,255,255,0.05);border:1px solid var(--border-color);color:white;border-radius:6px;">
+                        <div style="display:flex;gap:8px;margin-top:8px;">
+                            <label class="add-photo-btn" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;">
+                                <span>📸 Camera</span>
+                                <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="handleAddPhoto(event,'${item.replace(/'/g,"\\'")}')">
+                            </label>
+                            <label class="add-photo-btn" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:rgba(255,255,255,0.06);border-color:rgba(255,255,255,0.18);cursor:pointer;">
+                                <span>📁 Upload Image</span>
+                                <input type="file" accept="image/*" style="display:none;" onchange="handleAddPhoto(event,'${item.replace(/'/g,"\\'")}')">
+                            </label>
+                        </div>
+                    </div>`;
+                }).join('');
+                return;
+            }
+
+            // ── Special Tyre Data rendering ──────────────────────────────
+            if (isTyreCategory) {
+                container.innerHTML = cat.items.map(item => {
+                    const isSpare = item.includes('Spare');
+                    const draft = currentChecklistDraft.items[item] || {};
+                    const photos = draft.photos || [];
+                    const photosHtml = photos.map((pUrl, pIdx) => `
+                        <div class="photo-thumb">
+                            <img src="${pUrl}" alt="Photo">
+                            <button class="del-photo" onclick="removePhoto('${item.replace(/'/g, "\\'")}', ${pIdx})">✕</button>
+                        </div>
+                    `).join('');
+                    const sid = item.replace(/[^a-zA-Z0-9]/g,'_');
+
+                    if (isSpare) {
+                        return `
+                        <div class="check-item" style="border-left: 3px solid #6366f1;">
+                            <div class="check-item-header">
+                                <span style="font-weight:700;font-size:0.95rem;">🔧 ${item}</span>
+                                ${photos.length > 0 ? `<span class="badge badge-completed">📷 ${photos.length}</span>` : ''}
+                            </div>
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;">
+                                <div>
+                                    <label style="font-size:0.7rem;color:var(--text-muted);">Spare Tyre Condition</label>
+                                    <select onchange="setTyreField('${item.replace(/'/g,"\\'")}','spare_condition',this.value)"
+                                        style="width:100%;font-size:0.82rem;padding:6px;background:rgba(255,255,255,0.05);border:1px solid var(--border-color);color:white;border-radius:6px;">
+                                        <option value="" ${!draft.spare_condition?'selected':''}>Select condition...</option>
+                                        <option value="Good" ${draft.spare_condition==='Good'?'selected':''}>Good</option>
+                                        <option value="Fair" ${draft.spare_condition==='Fair'?'selected':''}>Fair</option>
+                                        <option value="Worn" ${draft.spare_condition==='Worn'?'selected':''}>Worn</option>
+                                        <option value="Flat" ${draft.spare_condition==='Flat'?'selected':''}>Flat</option>
+                                        <option value="Missing" ${draft.spare_condition==='Missing'?'selected':''}>Missing</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style="font-size:0.7rem;color:var(--text-muted);">Tyre Size (if visible)</label>
+                                    <input type="text" placeholder="e.g. 195/65R15" value="${draft.tyre_size||''}"
+                                        onchange="setTyreField('${item.replace(/'/g,"\\'")}','tyre_size',this.value)"
+                                        style="width:100%;font-size:0.82rem;padding:6px;background:rgba(255,255,255,0.05);border:1px solid var(--border-color);color:white;border-radius:6px;">
+                                </div>
+                            </div>
+                            <input type="text" placeholder="Additional remarks..." value="${draft.note||''}"
+                                onchange="setNote('${item.replace(/'/g,"\\'")}',this.value)"
+                                style="width:100%;margin-top:4px;font-size:0.82rem;padding:6px 10px;background:rgba(255,255,255,0.05);border:1px solid var(--border-color);color:white;border-radius:6px;">
+                            <div class="photos-grid">${photosHtml}</div>
+                            <div style="display:flex;gap:8px;margin-top:8px;">
+                                <label class="add-photo-btn" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;">
+                                    <span>📸 Camera</span>
+                                    <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="handleAddPhoto(event,'${item.replace(/'/g,"\\'")}')">
+                                </label>
+                                <label class="add-photo-btn" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:rgba(255,255,255,0.06);border-color:rgba(255,255,255,0.18);cursor:pointer;">
+                                    <span>📁 Upload Image</span>
+                                    <input type="file" accept="image/*" style="display:none;" onchange="handleAddPhoto(event,'${item.replace(/'/g,"\\'")}')">
+                                </label>
+                            </div>
+                        </div>`;
+                    }
+
+                    const isFL = item.includes('Front Left') || item.includes('(FL)');
+
+                    return `
+                    <div class="check-item" style="border-left: 3px solid #f59e0b;">
+                        <div class="check-item-header">
+                            <span style="font-weight:700;font-size:0.95rem;">🛞 ${item}</span>
+                            ${photos.length > 0 ? `<span class="badge badge-completed">📷 ${photos.length}</span>` : ''}
+                        </div>
+
+                        ${isFL ? `
+                        <div style="margin: 8px 0;">
+                            <button type="button" onclick="copyFrontLeftToAllTyres()" style="width:100%;display:flex;align-items:center;justify-content:center;gap:6px;background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.4);color:#fbbf24;padding:8px 10px;border-radius:8px;font-size:0.78rem;font-weight:600;cursor:pointer;">
+                                📋 Copy this data to all 4 tyres (FL, FR, RL, RR)
+                            </button>
+                        </div>
+                        ` : ''}
+
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0;">
+                            <div>
+                                <label style="font-size:0.7rem;color:var(--text-muted);">Manufacturer / Brand</label>
+                                <input type="text" data-tyre-item="${item}" data-tyre-field="tyre_make" placeholder="e.g. MRF, CEAT, Apollo" value="${draft.tyre_make||''}"
+                                    oninput="setTyreField('${item.replace(/'/g,"\\'")}','tyre_make',this.value)"
+                                    onchange="setTyreField('${item.replace(/'/g,"\\'")}','tyre_make',this.value)"
+                                    style="width:100%;font-size:0.82rem;padding:6px;background:rgba(255,255,255,0.05);border:1px solid var(--border-color);color:white;border-radius:6px;">
+                            </div>
+                            <div>
+                                <label style="font-size:0.7rem;color:var(--text-muted);">Model / Pattern</label>
+                                <input type="text" data-tyre-item="${item}" data-tyre-field="tyre_model" placeholder="e.g. ZLX, Milaze X3" value="${draft.tyre_model||''}"
+                                    oninput="setTyreField('${item.replace(/'/g,"\\'")}','tyre_model',this.value)"
+                                    onchange="setTyreField('${item.replace(/'/g,"\\'")}','tyre_model',this.value)"
+                                    style="width:100%;font-size:0.82rem;padding:6px;background:rgba(255,255,255,0.05);border:1px solid var(--border-color);color:white;border-radius:6px;">
+                            </div>
+                            <div>
+                                <label style="font-size:0.7rem;color:var(--text-muted);">Tyre Size</label>
+                                <input type="text" data-tyre-item="${item}" data-tyre-field="tyre_size" placeholder="e.g. 195/65R15" value="${draft.tyre_size||''}"
+                                    oninput="setTyreField('${item.replace(/'/g,"\\'")}','tyre_size',this.value)"
+                                    onchange="setTyreField('${item.replace(/'/g,"\\'")}','tyre_size',this.value)"
+                                    style="width:100%;font-size:0.82rem;padding:6px;background:rgba(255,255,255,0.05);border:1px solid var(--border-color);color:white;border-radius:6px;">
+                            </div>
+                            <div>
+                                <label style="font-size:0.7rem;color:var(--text-muted);">Mfg. Week (DOT Week)</label>
+                                <input type="number" data-tyre-item="${item}" data-tyre-field="mfg_week" placeholder="e.g. 32" min="1" max="53" value="${draft.mfg_week||''}"
+                                    oninput="setTyreField('${item.replace(/'/g,"\\'")}','mfg_week',this.value)"
+                                    onchange="setTyreField('${item.replace(/'/g,"\\'")}','mfg_week',this.value)"
+                                    style="width:100%;font-size:0.82rem;padding:6px;background:rgba(255,255,255,0.05);border:1px solid var(--border-color);color:white;border-radius:6px;">
+                            </div>
+                            <div>
+                                <label style="font-size:0.7rem;color:var(--text-muted);">Mfg. Year (DOT Year)</label>
+                                <input type="number" data-tyre-item="${item}" data-tyre-field="mfg_year" placeholder="e.g. 2021" min="2000" max="2030" value="${draft.mfg_year||''}"
+                                    oninput="setTyreField('${item.replace(/'/g,"\\'")}','mfg_year',this.value)"
+                                    onchange="setTyreField('${item.replace(/'/g,"\\'")}','mfg_year',this.value)"
+                                    style="width:100%;font-size:0.82rem;padding:6px;background:rgba(255,255,255,0.05);border:1px solid var(--border-color);color:white;border-radius:6px;">
+                            </div>
+                            <div>
+                                <label style="font-size:0.7rem;color:var(--text-muted);">Tread Depth (mm)</label>
+                                <input type="number" data-tyre-item="${item}" data-tyre-field="tread_depth" placeholder="e.g. 4.5" step="0.5" min="0" max="12" value="${draft.tread_depth||''}"
+                                    oninput="setTyreField('${item.replace(/'/g,"\\'")}','tread_depth',this.value)"
+                                    onchange="setTyreField('${item.replace(/'/g,"\\'")}','tread_depth',this.value)"
+                                    style="width:100%;font-size:0.82rem;padding:6px;background:rgba(255,255,255,0.05);border:1px solid var(--border-color);color:white;border-radius:6px;">
+                            </div>
+                            <div style="grid-column:1/-1;">
+                                <label style="font-size:0.7rem;color:var(--text-muted);">Tread Condition Analysis</label>
+                                <select data-tyre-item="${item}" data-tyre-field="tread_condition" onchange="setTyreField('${item.replace(/'/g,"\\'")}','tread_condition',this.value)"
+                                    style="width:100%;font-size:0.82rem;padding:6px;background:rgba(255,255,255,0.05);border:1px solid var(--border-color);color:white;border-radius:6px;">
+                                    <option value="" ${!draft.tread_condition?'selected':''}>Select condition...</option>
+                                    <option value="New (>8mm)" ${draft.tread_condition==='New (>8mm)'?'selected':''}>New (&gt;8mm)</option>
+                                    <option value="Good (5–8mm)" ${draft.tread_condition==='Good (5–8mm)'?'selected':''}>Good (5–8mm)</option>
+                                    <option value="Fair (3–5mm)" ${draft.tread_condition==='Fair (3–5mm)'?'selected':''}>Fair (3–5mm)</option>
+                                    <option value="Worn (1–3mm)" ${draft.tread_condition==='Worn (1–3mm)'?'selected':''}>Worn (1–3mm)</option>
+                                    <option value="Bald (<1mm)" ${draft.tread_condition==='Bald (<1mm)'?'selected':''}>Bald (&lt;1mm)</option>
+                                    <option value="Uneven Wear" ${draft.tread_condition==='Uneven Wear'?'selected':''}>Uneven Wear</option>
+                                </select>
+                            </div>
+                            <div style="grid-column:1/-1;">
+                                <label style="font-size:0.7rem;color:var(--text-muted);">Sidewall / Overall Condition</label>
+                                <select data-tyre-item="${item}" data-tyre-field="sidewall_condition" onchange="setTyreField('${item.replace(/'/g,"\\'")}','sidewall_condition',this.value)"
+                                    style="width:100%;font-size:0.82rem;padding:6px;background:rgba(255,255,255,0.05);border:1px solid var(--border-color);color:white;border-radius:6px;">
+                                    <option value="" ${!draft.sidewall_condition?'selected':''}>Select...</option>
+                                    <option value="Good" ${draft.sidewall_condition==='Good'?'selected':''}>Good — No defects</option>
+                                    <option value="Minor Scuffs" ${draft.sidewall_condition==='Minor Scuffs'?'selected':''}>Minor Scuffs</option>
+                                    <option value="Cracked" ${draft.sidewall_condition==='Cracked'?'selected':''}>Cracked / Aged</option>
+                                    <option value="Bulge" ${draft.sidewall_condition==='Bulge'?'selected':''}>Bulge / Deformity</option>
+                                    <option value="Cut/Damage" ${draft.sidewall_condition==='Cut/Damage'?'selected':''}>Cut / Damage</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <input type="text" data-tyre-item="${item}" data-tyre-field="note" placeholder="Observations / Notes..." value="${draft.note||''}"
+                            oninput="setNote('${item.replace(/'/g,"\\'")}',this.value)"
+                            onchange="setNote('${item.replace(/'/g,"\\'")}',this.value)"
+                            style="width:100%;margin-top:4px;font-size:0.82rem;padding:6px 10px;background:rgba(255,255,255,0.05);border:1px solid var(--border-color);color:white;border-radius:6px;">
+
+                        <div class="photos-grid">${photosHtml}</div>
+                        <div style="display:flex;gap:8px;margin-top:8px;">
+                            <label class="add-photo-btn" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;">
+                                <span>📸 Camera</span>
+                                <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="handleAddPhoto(event,'${item.replace(/'/g,"\\'")}')">
+                            </label>
+                            <label class="add-photo-btn" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:rgba(255,255,255,0.06);border-color:rgba(255,255,255,0.18);cursor:pointer;">
+                                <span>📁 Upload Image</span>
+                                <input type="file" accept="image/*" style="display:none;" onchange="handleAddPhoto(event,'${item.replace(/'/g,"\\'")}')">
+                            </label>
+                        </div>
+                    </div>`;
+                }).join('');
+                return;
+            }
+
+            container.innerHTML = cat.items.map(item => {
+                const draft = currentChecklistDraft.items[item] || { status: null, severity: 'low', note: '', paint_thickness: '', obd_value: '', photos: [] };
+                const photos = draft.photos || [];
+
+                const photosHtml = photos.map((pUrl, pIdx) => `
+                    <div class="photo-thumb">
+                        <img src="${pUrl}" alt="Photo">
+                        <button class="del-photo" onclick="removePhoto('${item.replace(/'/g, "\\'")}', ${pIdx})">✕</button>
+                    </div>
+                `).join('');
+
+                return `
+                <div class="check-item">
+                    <div class="check-item-header">
+                        <span style="font-weight: 600; font-size: 0.9rem;">${item}</span>
+                        ${photos.length > 0 ? `<span class="badge badge-completed">📷 ${photos.length} Photo${photos.length > 1 ? 's' : ''}</span>` : ''}
+                    </div>
+
+                    <div class="status-btns" data-item="${item}">
+                        <button class="status-btn ${draft.status==='Pass' || draft.status==='pass'?'selected':''}" data-val="pass" onclick="setStatus('${item.replace(/'/g, "\\'")}', 'Pass')">✅ Pass</button>
+                        <button class="status-btn ${draft.status==='Warn' || draft.status==='warn'?'selected':''}" data-val="warn" onclick="setStatus('${item.replace(/'/g, "\\'")}', 'Warn')">⚠️ Warn</button>
+                        <button class="status-btn ${draft.status==='Fail' || draft.status==='fail' || draft.status==='Scratch' || draft.status==='Dent' ?'selected':''}" data-val="fail" onclick="setStatus('${item.replace(/'/g, "\\'")}', 'Fail')">❌ Fail</button>
+                        <button class="status-btn ${draft.status==='N/A' || draft.status==='na'?'selected':''}" data-val="na" onclick="setStatus('${item.replace(/'/g, "\\'")}', 'N/A')">➖ N/A</button>
+                    </div>
+
+                    <div class="item-fields-grid">
+                        <div>
+                            <label style="font-size:0.7rem; color:var(--text-muted);">Severity</label>
+                            <select onchange="setSeverity('${item.replace(/'/g, "\\'")}', this.value)" style="width:100%; font-size:0.8rem; padding:6px; background:rgba(255,255,255,0.05); border:1px solid var(--border-color); color:white; border-radius:6px;">
+                                <option value="low" ${draft.severity==='low'?'selected':''}>Low Severity</option>
+                                <option value="medium" ${draft.severity==='medium'?'selected':''}>Medium Severity</option>
+                                <option value="high" ${draft.severity==='high'?'selected':''}>High Severity</option>
+                                <option value="critical" ${draft.severity==='critical'?'selected':''}>Critical Defect</option>
+                            </select>
+                        </div>
+                        
+                        ${isPaintCategory ? `
+                        <div>
+                            <label style="font-size:0.7rem; color:var(--text-muted);">Paint Gauge (µm)</label>
+                            <input type="number" placeholder="e.g. 203" value="${draft.paint_thickness || ''}" onchange="setPaintThickness('${item.replace(/'/g, "\\'")}', this.value)" style="width:100%; font-size:0.8rem; padding:6px; background:rgba(255,255,255,0.05); border:1px solid var(--border-color); color:white; border-radius:6px;">
+                        </div>
+                        ` : ''}
+
+                        ${isEngineObdCategory ? `
+                        <div>
+                            <label style="font-size:0.7rem; color:var(--text-muted);">OBD Value / Code</label>
+                            <input type="text" placeholder="e.g. 12.6V / P0300" value="${draft.obd_value || ''}" onchange="setObdValue('${item.replace(/'/g, "\\'")}', this.value)" style="width:100%; font-size:0.8rem; padding:6px; background:rgba(255,255,255,0.05); border:1px solid var(--border-color); color:white; border-radius:6px;">
+                        </div>
+                        ` : ''}
+                    </div>
+
+                    <input type="text" placeholder="Remarks / Observations..." value="${draft.note || ''}" onchange="setNote('${item.replace(/'/g, "\\'")}', this.value)" style="width:100%; margin-top:8px; font-size:0.85rem; padding:6px 10px; background:rgba(255,255,255,0.05); border:1px solid var(--border-color); color:white; border-radius:6px;">
+
+                    <div class="photos-grid">
+                        ${photosHtml}
+                    </div>
+
+                    <div style="display:flex;gap:8px;margin-top:8px;">
+                        <label class="add-photo-btn" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;">
+                            <span>📸 Camera</span>
+                            <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="handleAddPhoto(event, '${item.replace(/'/g, "\\'")}')">
+                        </label>
+                        <label class="add-photo-btn" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:rgba(255,255,255,0.06);border-color:rgba(255,255,255,0.18);cursor:pointer;">
+                            <span>📁 Upload Image</span>
+                            <input type="file" accept="image/*" style="display:none;" onchange="handleAddPhoto(event, '${item.replace(/'/g, "\\'")}')">
+                        </label>
+                    </div>
+                </div>
+                `;
+            }).join('');
+        }
+
+        window.setStatus = (itemName, status) => {
+            if(!currentChecklistDraft.items[itemName]) currentChecklistDraft.items[itemName] = { severity: 'low', note: '', photos: [] };
+            currentChecklistDraft.items[itemName].status = status;
+            saveDraft(activeBookingId, currentChecklistDraft);
+            renderChecklistForCategory();
+            updateProgress();
+        };
+
+        window.setSeverity = (itemName, val) => {
+            if(!currentChecklistDraft.items[itemName]) currentChecklistDraft.items[itemName] = { status: 'Pass', note: '', photos: [] };
+            currentChecklistDraft.items[itemName].severity = val;
+            saveDraft(activeBookingId, currentChecklistDraft);
+        };
+
+        window.setNote = (itemName, val) => {
+            if(!currentChecklistDraft.items[itemName]) currentChecklistDraft.items[itemName] = { status: 'Pass', severity: 'low', photos: [] };
+            currentChecklistDraft.items[itemName].note = val;
+            saveDraft(activeBookingId, currentChecklistDraft);
+        };
+
+        window.setPaintThickness = (itemName, val) => {
+            if(!currentChecklistDraft.items[itemName]) currentChecklistDraft.items[itemName] = { status: 'Pass', severity: 'low', photos: [] };
+            currentChecklistDraft.items[itemName].paint_thickness = val;
+            saveDraft(activeBookingId, currentChecklistDraft);
+        };
+
+        window.setObdValue = (itemName, val) => {
+            if(!currentChecklistDraft.items[itemName]) currentChecklistDraft.items[itemName] = { status: 'Pass', severity: 'low', photos: [] };
+            currentChecklistDraft.items[itemName].obd_value = val;
+            saveDraft(activeBookingId, currentChecklistDraft);
+        };
+
+        window.setTyreField = (itemName, field, val) => {
+            if (!currentChecklistDraft.items[itemName]) currentChecklistDraft.items[itemName] = { photos: [] };
+            currentChecklistDraft.items[itemName][field] = val;
+            saveDraft(activeBookingId, currentChecklistDraft);
+        };
+
+        window.copyFrontLeftToAllTyres = () => {
+            if (!currentChecklistDraft) currentChecklistDraft = { items: {} };
+            if (!currentChecklistDraft.items) currentChecklistDraft.items = {};
+
+            const flKey = 'Tyre — Front Left (FL)';
+            if (!currentChecklistDraft.items[flKey]) currentChecklistDraft.items[flKey] = { photos: [] };
+
+            const fieldsToCopy = ['tyre_make', 'tyre_model', 'tyre_size', 'mfg_week', 'mfg_year', 'tread_depth', 'tread_condition', 'sidewall_condition', 'note'];
+
+            // Scrape live DOM inputs for Front Left so current typed values are immediately captured
+            fieldsToCopy.forEach(f => {
+                const el = document.querySelector(`[data-tyre-item="${flKey}"][data-tyre-field="${f}"]`);
+                if (el && el.value !== undefined && el.value !== '') {
+                    currentChecklistDraft.items[flKey][f] = el.value;
+                }
+            });
+
+            const flData = currentChecklistDraft.items[flKey] || {};
+
+            const fourTyres = [
+                'Tyre — Front Left (FL)',
+                'Tyre — Front Right (FR)',
+                'Tyre — Rear Left (RL)',
+                'Tyre — Rear Right (RR)'
+            ];
+
+            fourTyres.forEach(tName => {
+                if (!currentChecklistDraft.items[tName]) {
+                    currentChecklistDraft.items[tName] = { photos: [] };
+                }
+                fieldsToCopy.forEach(f => {
+                    if (flData[f] !== undefined && flData[f] !== null) {
+                        currentChecklistDraft.items[tName][f] = flData[f];
+                    }
+                });
+            });
+
+            saveDraft(activeBookingId, currentChecklistDraft);
+            renderChecklistForCategory();
+            showToast('✅ Copied Front Left specs to all 4 tyres! All remain fully editable.', false);
+        };
+
+        window.removePhoto = (itemName, photoIdx) => {
+            if (currentChecklistDraft.items[itemName] && currentChecklistDraft.items[itemName].photos) {
+                currentChecklistDraft.items[itemName].photos.splice(photoIdx, 1);
+                saveDraft(activeBookingId, currentChecklistDraft);
+                renderChecklistForCategory();
+            }
+        };
+
+        window.handleAddPhoto = (e, itemName) => {
+            const file = e.target.files[0];
+            if(!file) return;
+
+            showLoader('Compressing photo...');
+
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+                    const maxDim = 1000;
+
+                    if (width > maxDim || height > maxDim) {
+                        if (width > height) {
+                            height = Math.round((height * maxDim) / width);
+                            width = maxDim;
+                        } else {
+                            width = Math.round((width * maxDim) / height);
+                            height = maxDim;
+                        }
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.7);
+
+                    if(!currentChecklistDraft.items[itemName]) {
+                        currentChecklistDraft.items[itemName] = { status: 'Pass', severity: 'low', note: '', photos: [] };
+                    }
+                    if (!currentChecklistDraft.items[itemName].photos) {
+                        currentChecklistDraft.items[itemName].photos = [];
+                    }
+                    currentChecklistDraft.items[itemName].photos.push(compressedDataUrl);
+
+                    saveDraft(activeBookingId, currentChecklistDraft);
+                    hideLoader();
+                    showToast('📷 Photo added!', false);
+                    renderChecklistForCategory();
+                };
+                img.src = ev.target.result;
+            };
+            reader.readAsDataURL(file);
+        };
+
+        function updateProgress() {
+            let totalItems = 0;
+            let completedItems = 0;
+            
+            CHECKLIST_CATEGORIES.forEach(cat => {
+                totalItems += cat.items.length;
+                cat.items.forEach(item => {
+                    if(currentChecklistDraft.items[item] && currentChecklistDraft.items[item].status) {
+                        completedItems++;
+                    }
+                });
+            });
+            
+            const pct = Math.round((completedItems / totalItems) * 100);
+            document.getElementById('insp-progress').style.width = `${pct}%`;
+            document.getElementById('insp-progress-text').textContent = `${pct}% Completed (${completedItems}/${totalItems} Checked)`;
+        }
+
+        // Summary Screen
+        function loadSummaryScreen() {
+            document.getElementById('back-to-checklist').onclick = () => window.location.hash = `#/inspection/${activeBookingId}`;
+            
+            const booking = bookingsCache.find(b => b.id == activeBookingId);
+            if (booking) {
+                document.getElementById('submit-vehicle-name').textContent = `${booking.vehicle_brand} ${booking.vehicle_model}`;
+                document.getElementById('submit-booking-ref').textContent = `Ref: ${booking.booking_ref}`;
+            }
+
+            let completedCount = 0;
+            CHECKLIST_CATEGORIES.forEach(cat => {
+                cat.items.forEach(item => {
+                    if (currentChecklistDraft.items[item] && currentChecklistDraft.items[item].status) {
+                        completedCount++;
+                    }
+                });
+            });
+
+            document.getElementById('submit-items-badge').textContent = `✓ ${completedCount} Diagnostic Points Inspected`;
+        }
+
+        // Helper: Upload photo base64 to Supabase Storage bucket 'report-documents'
+        async function uploadPhotoToStorage(dataUrl, bookingId) {
+            try {
+                const client = dbClient || window.supabase;
+                if (!client || !dataUrl || !dataUrl.startsWith('data:')) return dataUrl;
+
+                const res = await fetch(dataUrl);
+                const blob = await res.blob();
+                const fileExt = 'jpg';
+                const fileName = `inspection_${bookingId}_${Date.now()}_${Math.random().toString(36).substring(2,7)}.${fileExt}`;
+                const filePath = `photos/${bookingId}/${fileName}`;
+
+                const { data, error } = await client.storage.from('report-documents').upload(filePath, blob, {
+                    contentType: 'image/jpeg',
+                    upsert: true
+                });
+
+                if (error) {
+                    console.warn("Storage upload error, using base64 fallback:", error.message);
+                    return dataUrl;
+                }
+
+                const { data: pubData } = client.storage.from('report-documents').getPublicUrl(filePath);
+                return pubData ? pubData.publicUrl : dataUrl;
+            } catch (err) {
+                console.warn("Storage upload exception, using base64 fallback:", err);
+                return dataUrl;
+            }
+        }
+
+        // Submit to Supabase Database
+        document.getElementById('submit-report-btn').addEventListener('click', async () => {
+            showLoader('Preparing inspection submission...');
+            const client = dbClient || window.supabase;
+            if(!client) {
+                hideLoader();
+                showToast('Database connection unavailable', true);
+                return;
+            }
+
+            try {
+                const inspectorId = (currentProfile && currentProfile.id) ? currentProfile.id : (currentUser ? currentUser.id : null);
+
+                // Collect answers & photos
+                const answersPayload = [];
+                const rawPhotosList = [];
+
+                CHECKLIST_CATEGORIES.forEach(cat => {
+                    const isTyreCat = cat.type === 'tyre';
+                    cat.items.forEach(item => {
+                        const d = currentChecklistDraft.items[item] || { status: 'Pass', severity: 'low', note: '' };
+                        const entry = {
+                            booking_id: activeBookingId,
+                            inspector_id: inspectorId,
+                            category: cat.name,
+                            item_name: item,
+                            answer: d.status || 'Pass',
+                            severity: d.severity || 'low',
+                            remarks: d.note || '',
+                            paint_thickness: d.paint_thickness ? Number(d.paint_thickness) : null,
+                            obd_value: d.obd_value || null,
+                            gps_location: currentLocationGps || '12.9716, 77.5946'
+                        };
+                        // Include tyre-specific fields for Tyre Data category
+                        if (isTyreCat) {
+                            entry.tyre_make = d.tyre_make || null;
+                            entry.tyre_model = d.tyre_model || null;
+                            entry.tyre_size = d.tyre_size || null;
+                            entry.mfg_week = d.mfg_week ? Number(d.mfg_week) : null;
+                            entry.mfg_year = d.mfg_year ? Number(d.mfg_year) : null;
+                            entry.tread_depth = d.tread_depth ? Number(d.tread_depth) : null;
+                            entry.tread_condition = d.tread_condition || null;
+                            entry.sidewall_condition = d.sidewall_condition || null;
+                            entry.spare_condition = d.spare_condition || null;
+                        }
+                        answersPayload.push(entry);
+
+                        if (d.photos && d.photos.length > 0) {
+                            d.photos.forEach(pUrl => {
+                                rawPhotosList.push({
+                                    category: cat.name,
+                                    item_name: item,
+                                    caption: `${item} (${d.status || 'Pass'})`,
+                                    dataUrl: pUrl
+                                });
+                            });
+                        }
+                    });
+                });
+
+                // Collect Exterior Baseline Photos (stored as per-slot keys, not in CHECKLIST_CATEGORIES items)
+                const exteriorSlots = [
+                    { key: 'front',  label: 'Exterior Baseline Photos – Front View' },
+                    { key: 'rear',   label: 'Exterior Baseline Photos – Rear View' },
+                    { key: 'left',   label: 'Exterior Baseline Photos – Left Side View' },
+                    { key: 'right',  label: 'Exterior Baseline Photos – Right Side View' }
+                ];
+                exteriorSlots.forEach(slot => {
+                    const slotDraft = currentChecklistDraft.items['Exterior Baseline Photos_' + slot.key] || {};
+                    if (slotDraft.photos && slotDraft.photos.length > 0) {
+                        slotDraft.photos.forEach(pUrl => {
+                            rawPhotosList.push({
+                                category: 'Baseline Photos & Docs',
+                                item_name: slot.label,
+                                caption: slot.label,
+                                dataUrl: pUrl
+                            });
+                        });
+                    }
+                });
+
+                // Step 1: Upload photos to Storage bucket in background
+                const photosPayload = [];
+                const totalPhotos = rawPhotosList.length;
+
+                for (let i = 0; i < totalPhotos; i++) {
+                    showLoader(`Uploading photo ${i + 1} of ${totalPhotos}...`);
+                    const photoObj = rawPhotosList[i];
+                    const finalUrl = await uploadPhotoToStorage(photoObj.dataUrl, activeBookingId);
+                    photosPayload.push({
+                        booking_id: activeBookingId,
+                        category: photoObj.category,
+                        item_name: photoObj.item_name,
+                        caption: photoObj.caption,
+                        photo_url: finalUrl
+                    });
+                }
+
+                // Step 2: Delete previous submitted answers/photos for clean overwrite
+                showLoader('Saving checklist data to database...');
+                await client.from('inspection_answers').delete().eq('booking_id', activeBookingId);
+                await client.from('inspection_photos').delete().eq('booking_id', activeBookingId);
+
+                // Step 3: Insert answers in batches of 50
+                const batchSize = 50;
+                for (let i = 0; i < answersPayload.length; i += batchSize) {
+                    const batch = answersPayload.slice(i, i + batchSize);
+                    const { error: ansErr } = await client.from('inspection_answers').insert(batch);
+                    if (ansErr) {
+                        console.error("Answers batch insert error:", ansErr);
+                        throw new Error("Failed to save inspection answers: " + ansErr.message);
+                    }
+                }
+
+                // Step 4: Insert photos in batches of 5
+                for (let i = 0; i < photosPayload.length; i += 5) {
+                    const photoBatch = photosPayload.slice(i, i + 5);
+                    const { error: photoErr } = await client.from('inspection_photos').insert(photoBatch);
+                    if (photoErr) {
+                        console.error("Photos insert error:", photoErr);
+                        throw new Error("Failed to save inspection photos: " + photoErr.message);
+                    }
+                }
+
+                // Step 5: Update booking status & report_status
+                showLoader('Finalizing inspection status...');
+                const { error: bErr } = await client.from('bookings').update({
+                    status: 'completed',
+                    report_status: 'inspection_completed'
+                }).eq('id', activeBookingId);
+
+                if (bErr) throw bErr;
+
+                // Clear local draft
+                localStorage.removeItem(`draft_${activeBookingId}`);
+                
+                hideLoader();
+                showToast('🎉 Inspection submitted! Photos & checklist ready for Admin review.');
+                window.location.hash = '#/home';
+            } catch(e) {
+                hideLoader();
+                console.error("Checklist submit error:", e);
+                showToast(e.message || 'Error submitting checklist', true);
+            }
+        });
+
+        // Profile & Reports
+        function renderProfile() {
+            if(currentProfile) {
+                document.getElementById('prof-name').textContent = currentProfile.full_name;
+                document.getElementById('prof-email').textContent = currentUser.email;
+            }
+        }
+
+        async function loadReportsList() {
+            const container = document.getElementById('reports-list');
+            if (!container) return;
+            container.innerHTML = '<p class="text-center" style="color:var(--text-muted); font-size:0.85rem;">Loading...</p>';
+            
+            const client = dbClient || window.supabase;
+            if(!client) return;
+
+            const { data, error } = await client
+                .from('bookings')
+                .select('*')
+                .eq('status', 'completed')
+                .order('inspection_date', { ascending: false });
+                
+            if(error || !data || data.length === 0) {
+                container.innerHTML = '<p class="text-center" style="color:var(--text-muted); font-size:0.85rem; padding:1rem;">No submitted inspections found.</p>';
+                return;
+            }
+            
+            container.innerHTML = data.map(b => `
+                <div class="card mb-2">
+                    <div class="flex justify-between items-center mb-2">
+                        <span style="font-weight:600">Ref: ${b.booking_ref}</span>
+                        <span class="badge badge-completed">COMPLETED</span>
+                    </div>
+                    <div style="font-weight:600; font-size:1rem;">${b.vehicle_brand} ${b.vehicle_model}</div>
+                    <p style="margin:4px 0; font-size:0.8rem; color:var(--text-muted)">Customer: ${b.customer_name}<br>Date: ${b.inspection_date}</p>
+                    <button class="btn btn-secondary mt-2" onclick="window.location.hash='#/inspection/${b.id}'">
+                        ✏️ Edit / Re-open Inspection
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        // Realtime setup
+        function setupRealtime() {
+            if(!currentProfile) return;
+            supabase.channel('custom-all-channel')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings', filter: `inspector_id=eq.${currentProfile.id}` }, payload => {
+                    showToast('Job assignment updated');
+                    if(window.location.hash === '#/home' || window.location.hash === '#/bookings') {
+                        loadHomeData();
+                    }
+                })
+                .subscribe();
+        }
+
+        // Init PWA service worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js').catch(e => console.log('SW reg failed', e));
+            });
+        }
+
+        // Boot
+        handleRoute();
+    </script>
+</body>
+</html>
