@@ -1124,9 +1124,16 @@
                             <div style="background:rgba(139,92,246,0.08);border:1px dashed #8b5cf6;border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:6px;">
                                 <div style="font-size:0.78rem;font-weight:700;color:#a78bfa;">${slot.icon} ${slot.label}</div>
                                 ${thumbs}
-                                <label style="display:flex;align-items:center;justify-content:center;gap:6px;background:rgba(139,92,246,0.2);border:1px solid #8b5cf6;border-radius:6px;padding:8px 4px;cursor:pointer;font-size:0.78rem;color:#c4b5fd;font-weight:600;">
-                                    📷 ${photos.length > 0 ? 'Add Another' : 'Capture'}
-                                    <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="handleAddPhoto(event,'${('Exterior Baseline Photos_' + slot.key).replace(/'/g,"\\'")}')">                                </label>
+                            <div style="display:flex;gap:6px;margin-top:6px;">
+                                <label style="flex:1;display:flex;align-items:center;justify-content:center;gap:4px;background:rgba(139,92,246,0.25);border:1px solid #8b5cf6;border-radius:6px;padding:7px 4px;cursor:pointer;font-size:0.75rem;color:#c4b5fd;font-weight:600;">
+                                    📸 Camera
+                                    <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="handleAddPhoto(event,'${('Exterior Baseline Photos_' + slot.key).replace(/'/g,"\\'")}')">
+                                </label>
+                                <label style="flex:1;display:flex;align-items:center;justify-content:center;gap:4px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.18);border-radius:6px;padding:7px 4px;cursor:pointer;font-size:0.75rem;color:#e2e8f0;font-weight:600;">
+                                    📁 Gallery
+                                    <input type="file" accept="image/*" style="display:none;" onchange="handleAddPhoto(event,'${('Exterior Baseline Photos_' + slot.key).replace(/'/g,"\\'")}')">
+                                </label>
+                            </div>
                             </div>`;
                         }).join('');
                         return `
@@ -1160,9 +1167,16 @@
                         <input type="text" placeholder="Remarks / Observations..." value="${draft.note||''}"
                             onchange="setNote('${item.replace(/'/g,"\\'")}',${''}this.value)"
                             style="width:100%;margin-top:8px;font-size:0.85rem;padding:6px 10px;background:rgba(255,255,255,0.05);border:1px solid var(--border-color);color:white;border-radius:6px;">
-                        <label class="add-photo-btn" style="margin-top:6px;">
-                            <span>📷 Add Photo / Scan</span>
-                            <input type="file" accept="image/*" capture="environment" onchange="handleAddPhoto(event,'${item.replace(/'/g,"\\'")}')">                        </label>
+                        <div style="display:flex;gap:8px;margin-top:8px;">
+                            <label class="add-photo-btn" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;">
+                                <span>📸 Camera</span>
+                                <input type="file" accept="image/*" capture="environment" onchange="handleAddPhoto(event,'${item.replace(/'/g,"\\'")}')">
+                            </label>
+                            <label class="add-photo-btn" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:rgba(255,255,255,0.06);border-color:rgba(255,255,255,0.18);">
+                                <span>📁 Upload Image</span>
+                                <input type="file" accept="image/*" onchange="handleAddPhoto(event,'${item.replace(/'/g,"\\'")}')">
+                            </label>
+                        </div>
                     </div>`;
                 }).join('');
                 return;
@@ -1213,10 +1227,16 @@
                                 onchange="setNote('${item.replace(/'/g,"\\'")}',this.value)"
                                 style="width:100%;margin-top:4px;font-size:0.82rem;padding:6px 10px;background:rgba(255,255,255,0.05);border:1px solid var(--border-color);color:white;border-radius:6px;">
                             <div class="photos-grid">${photosHtml}</div>
-                            <label class="add-photo-btn">
-                                <span>📷 Add Photo</span>
-                                <input type="file" accept="image/*" capture="environment" onchange="handleAddPhoto(event,'${item.replace(/'/g,"\\'")}')">
-                            </label>
+                            <div style="display:flex;gap:8px;margin-top:8px;">
+                                <label class="add-photo-btn" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;">
+                                    <span>📸 Camera</span>
+                                    <input type="file" accept="image/*" capture="environment" onchange="handleAddPhoto(event,'${item.replace(/'/g,"\\'")}')">
+                                </label>
+                                <label class="add-photo-btn" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:rgba(255,255,255,0.06);border-color:rgba(255,255,255,0.18);">
+                                    <span>📁 Upload Image</span>
+                                    <input type="file" accept="image/*" onchange="handleAddPhoto(event,'${item.replace(/'/g,"\\'")}')">
+                                </label>
+                            </div>
                         </div>`;
                     }
 
@@ -1296,10 +1316,16 @@
                             style="width:100%;margin-top:4px;font-size:0.82rem;padding:6px 10px;background:rgba(255,255,255,0.05);border:1px solid var(--border-color);color:white;border-radius:6px;">
 
                         <div class="photos-grid">${photosHtml}</div>
-                        <label class="add-photo-btn">
-                            <span>📷 Add Tyre Photo</span>
-                            <input type="file" accept="image/*" capture="environment" onchange="handleAddPhoto(event,'${item.replace(/'/g,"\\'")}')">
-                        </label>
+                        <div style="display:flex;gap:8px;margin-top:8px;">
+                            <label class="add-photo-btn" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;">
+                                <span>📸 Camera</span>
+                                <input type="file" accept="image/*" capture="environment" onchange="handleAddPhoto(event,'${item.replace(/'/g,"\\'")}')">
+                            </label>
+                            <label class="add-photo-btn" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:rgba(255,255,255,0.06);border-color:rgba(255,255,255,0.18);">
+                                <span>📁 Upload Image</span>
+                                <input type="file" accept="image/*" onchange="handleAddPhoto(event,'${item.replace(/'/g,"\\'")}')">
+                            </label>
+                        </div>
                     </div>`;
                 }).join('');
                 return;
@@ -1362,10 +1388,16 @@
                         ${photosHtml}
                     </div>
 
-                    <label class="add-photo-btn">
-                        <span>📷 Add Photo</span>
-                        <input type="file" accept="image/*" capture="environment" onchange="handleAddPhoto(event, '${item.replace(/'/g, "\\'")}')">
-                    </label>
+                    <div style="display:flex;gap:8px;margin-top:8px;">
+                        <label class="add-photo-btn" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;">
+                            <span>📸 Camera</span>
+                            <input type="file" accept="image/*" capture="environment" onchange="handleAddPhoto(event, '${item.replace(/'/g, "\\'")}')">
+                        </label>
+                        <label class="add-photo-btn" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:rgba(255,255,255,0.06);border-color:rgba(255,255,255,0.18);">
+                            <span>📁 Upload Image</span>
+                            <input type="file" accept="image/*" onchange="handleAddPhoto(event, '${item.replace(/'/g, "\\'")}')">
+                        </label>
+                    </div>
                 </div>
                 `;
             }).join('');
