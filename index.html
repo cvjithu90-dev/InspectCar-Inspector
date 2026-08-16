@@ -1260,43 +1260,49 @@
                         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0;">
                             <div>
                                 <label style="font-size:0.7rem;color:var(--text-muted);">Manufacturer / Brand</label>
-                                <input type="text" placeholder="e.g. MRF, CEAT, Apollo" value="${draft.tyre_make||''}"
+                                <input type="text" data-tyre-item="${item}" data-tyre-field="tyre_make" placeholder="e.g. MRF, CEAT, Apollo" value="${draft.tyre_make||''}"
+                                    oninput="setTyreField('${item.replace(/'/g,"\\'")}','tyre_make',this.value)"
                                     onchange="setTyreField('${item.replace(/'/g,"\\'")}','tyre_make',this.value)"
                                     style="width:100%;font-size:0.82rem;padding:6px;background:rgba(255,255,255,0.05);border:1px solid var(--border-color);color:white;border-radius:6px;">
                             </div>
                             <div>
                                 <label style="font-size:0.7rem;color:var(--text-muted);">Model / Pattern</label>
-                                <input type="text" placeholder="e.g. ZLX, Milaze X3" value="${draft.tyre_model||''}"
+                                <input type="text" data-tyre-item="${item}" data-tyre-field="tyre_model" placeholder="e.g. ZLX, Milaze X3" value="${draft.tyre_model||''}"
+                                    oninput="setTyreField('${item.replace(/'/g,"\\'")}','tyre_model',this.value)"
                                     onchange="setTyreField('${item.replace(/'/g,"\\'")}','tyre_model',this.value)"
                                     style="width:100%;font-size:0.82rem;padding:6px;background:rgba(255,255,255,0.05);border:1px solid var(--border-color);color:white;border-radius:6px;">
                             </div>
                             <div>
                                 <label style="font-size:0.7rem;color:var(--text-muted);">Tyre Size</label>
-                                <input type="text" placeholder="e.g. 195/65R15" value="${draft.tyre_size||''}"
+                                <input type="text" data-tyre-item="${item}" data-tyre-field="tyre_size" placeholder="e.g. 195/65R15" value="${draft.tyre_size||''}"
+                                    oninput="setTyreField('${item.replace(/'/g,"\\'")}','tyre_size',this.value)"
                                     onchange="setTyreField('${item.replace(/'/g,"\\'")}','tyre_size',this.value)"
                                     style="width:100%;font-size:0.82rem;padding:6px;background:rgba(255,255,255,0.05);border:1px solid var(--border-color);color:white;border-radius:6px;">
                             </div>
                             <div>
                                 <label style="font-size:0.7rem;color:var(--text-muted);">Mfg. Week (DOT Week)</label>
-                                <input type="number" placeholder="e.g. 32" min="1" max="53" value="${draft.mfg_week||''}"
+                                <input type="number" data-tyre-item="${item}" data-tyre-field="mfg_week" placeholder="e.g. 32" min="1" max="53" value="${draft.mfg_week||''}"
+                                    oninput="setTyreField('${item.replace(/'/g,"\\'")}','mfg_week',this.value)"
                                     onchange="setTyreField('${item.replace(/'/g,"\\'")}','mfg_week',this.value)"
                                     style="width:100%;font-size:0.82rem;padding:6px;background:rgba(255,255,255,0.05);border:1px solid var(--border-color);color:white;border-radius:6px;">
                             </div>
                             <div>
                                 <label style="font-size:0.7rem;color:var(--text-muted);">Mfg. Year (DOT Year)</label>
-                                <input type="number" placeholder="e.g. 2021" min="2000" max="2030" value="${draft.mfg_year||''}"
+                                <input type="number" data-tyre-item="${item}" data-tyre-field="mfg_year" placeholder="e.g. 2021" min="2000" max="2030" value="${draft.mfg_year||''}"
+                                    oninput="setTyreField('${item.replace(/'/g,"\\'")}','mfg_year',this.value)"
                                     onchange="setTyreField('${item.replace(/'/g,"\\'")}','mfg_year',this.value)"
                                     style="width:100%;font-size:0.82rem;padding:6px;background:rgba(255,255,255,0.05);border:1px solid var(--border-color);color:white;border-radius:6px;">
                             </div>
                             <div>
                                 <label style="font-size:0.7rem;color:var(--text-muted);">Tread Depth (mm)</label>
-                                <input type="number" placeholder="e.g. 4.5" step="0.5" min="0" max="12" value="${draft.tread_depth||''}"
+                                <input type="number" data-tyre-item="${item}" data-tyre-field="tread_depth" placeholder="e.g. 4.5" step="0.5" min="0" max="12" value="${draft.tread_depth||''}"
+                                    oninput="setTyreField('${item.replace(/'/g,"\\'")}','tread_depth',this.value)"
                                     onchange="setTyreField('${item.replace(/'/g,"\\'")}','tread_depth',this.value)"
                                     style="width:100%;font-size:0.82rem;padding:6px;background:rgba(255,255,255,0.05);border:1px solid var(--border-color);color:white;border-radius:6px;">
                             </div>
                             <div style="grid-column:1/-1;">
                                 <label style="font-size:0.7rem;color:var(--text-muted);">Tread Condition Analysis</label>
-                                <select onchange="setTyreField('${item.replace(/'/g,"\\'")}','tread_condition',this.value)"
+                                <select data-tyre-item="${item}" data-tyre-field="tread_condition" onchange="setTyreField('${item.replace(/'/g,"\\'")}','tread_condition',this.value)"
                                     style="width:100%;font-size:0.82rem;padding:6px;background:rgba(255,255,255,0.05);border:1px solid var(--border-color);color:white;border-radius:6px;">
                                     <option value="" ${!draft.tread_condition?'selected':''}>Select condition...</option>
                                     <option value="New (>8mm)" ${draft.tread_condition==='New (>8mm)'?'selected':''}>New (&gt;8mm)</option>
@@ -1309,7 +1315,7 @@
                             </div>
                             <div style="grid-column:1/-1;">
                                 <label style="font-size:0.7rem;color:var(--text-muted);">Sidewall / Overall Condition</label>
-                                <select onchange="setTyreField('${item.replace(/'/g,"\\'")}','sidewall_condition',this.value)"
+                                <select data-tyre-item="${item}" data-tyre-field="sidewall_condition" onchange="setTyreField('${item.replace(/'/g,"\\'")}','sidewall_condition',this.value)"
                                     style="width:100%;font-size:0.82rem;padding:6px;background:rgba(255,255,255,0.05);border:1px solid var(--border-color);color:white;border-radius:6px;">
                                     <option value="" ${!draft.sidewall_condition?'selected':''}>Select...</option>
                                     <option value="Good" ${draft.sidewall_condition==='Good'?'selected':''}>Good — No defects</option>
@@ -1321,7 +1327,8 @@
                             </div>
                         </div>
 
-                        <input type="text" placeholder="Observations / Notes..." value="${draft.note||''}"
+                        <input type="text" data-tyre-item="${item}" data-tyre-field="note" placeholder="Observations / Notes..." value="${draft.note||''}"
+                            oninput="setNote('${item.replace(/'/g,"\\'")}',this.value)"
                             onchange="setNote('${item.replace(/'/g,"\\'")}',this.value)"
                             style="width:100%;margin-top:4px;font-size:0.82rem;padding:6px 10px;background:rgba(255,255,255,0.05);border:1px solid var(--border-color);color:white;border-radius:6px;">
 
@@ -1452,9 +1459,22 @@
         };
 
         window.copyFrontLeftToAllTyres = () => {
-            if (!currentChecklistDraft || !currentChecklistDraft.items) return;
-            const allKeys = Object.keys(currentChecklistDraft.items);
-            const flKey = allKeys.find(k => k.toLowerCase().includes('front left') || k.toLowerCase().includes('(fl)')) || 'Tyre — Front Left (FL)';
+            if (!currentChecklistDraft) currentChecklistDraft = { items: {} };
+            if (!currentChecklistDraft.items) currentChecklistDraft.items = {};
+
+            const flKey = 'Tyre — Front Left (FL)';
+            if (!currentChecklistDraft.items[flKey]) currentChecklistDraft.items[flKey] = { photos: [] };
+
+            const fieldsToCopy = ['tyre_make', 'tyre_model', 'tyre_size', 'mfg_week', 'mfg_year', 'tread_depth', 'tread_condition', 'sidewall_condition', 'note'];
+
+            // Scrape live DOM inputs for Front Left so current typed values are immediately captured
+            fieldsToCopy.forEach(f => {
+                const el = document.querySelector(`[data-tyre-item="${flKey}"][data-tyre-field="${f}"]`);
+                if (el && el.value !== undefined && el.value !== '') {
+                    currentChecklistDraft.items[flKey][f] = el.value;
+                }
+            });
+
             const flData = currentChecklistDraft.items[flKey] || {};
 
             const fourTyres = [
@@ -1464,24 +1484,20 @@
                 'Tyre — Rear Right (RR)'
             ];
 
-            const fieldsToCopy = ['tyre_make', 'tyre_model', 'tyre_size', 'mfg_week', 'mfg_year', 'tread_depth', 'tread_condition', 'sidewall_condition', 'note'];
-
-            let count = 0;
             fourTyres.forEach(tName => {
                 if (!currentChecklistDraft.items[tName]) {
                     currentChecklistDraft.items[tName] = { photos: [] };
                 }
                 fieldsToCopy.forEach(f => {
-                    if (flData[f] !== undefined && flData[f] !== '') {
+                    if (flData[f] !== undefined && flData[f] !== null) {
                         currentChecklistDraft.items[tName][f] = flData[f];
-                        count++;
                     }
                 });
             });
 
             saveDraft(activeBookingId, currentChecklistDraft);
-            showToast('📋 Front Left specs copied to all 4 tyres! All remain fully editable.', false);
             renderChecklistForCategory();
+            showToast('✅ Copied Front Left specs to all 4 tyres! All remain fully editable.', false);
         };
 
         window.removePhoto = (itemName, photoIdx) => {
