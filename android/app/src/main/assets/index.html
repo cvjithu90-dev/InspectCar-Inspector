@@ -3,7 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
     <title>InspectCar Inspector PWA</title>
+    <script>
+        if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+            location.replace('https:' + location.href.substring(location.protocol.length));
+        }
+    </script>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#6366F1">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -570,22 +576,26 @@
                     'Door Front Left: Defects',
                     'Door Rear Left: Defects',
                     'Quarter Left: Defects',
+                    'Running Board Left',
                     'Rear Bumper: Defects',
                     'Rear Bumper: Fitment',
                     'Fender Right: Defects',
                     'Door Front Right: Defects',
                     'Door Rear Right: Defects',
+                    'Running Board Right',
                     'Rear Right door handle: physical',
                     'VIN plate / rivets tamper signs',
                     'Fender / Door / Quarter / Pillar fitment (L & R)',
                     'Trunk / Tailgate: Defects & Fitment',
                     'Fuel lid / door condition & hinge',
-                    'Left / Right ORVM housing condition'
+                    'Left / Right ORVM housing condition',
+                    'Modification'
                 ]
             },
             {
                 name: 'Glass & Mirrors',
                 items: [
+                    'Check all glass MFD',
                     'Front windshield: chips / cracks',
                     'Front windshield: wiper-arc scratches / haze',
                     'Front windshield seal / garnish condition',
@@ -649,6 +659,8 @@
             {
                 name: 'Under Hood — Engine OFF',
                 items: [
+                    'Oil level / condition',
+                    'Visible oil leakage',
                     'Battery terminals & hold-down',
                     'Belts visual (cracks / fray)',
                     'Coolant reservoir / brake fluid level',
@@ -712,6 +724,8 @@
             {
                 name: 'Under Hood — Engine ON',
                 items: [
+                    'Back compression (oil spill)',
+                    'unusual Noise from engine',
                     'Idle quality / vibration',
                     'Idle RPM (spec)',
                     'Cooling fan operation',
