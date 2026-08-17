@@ -744,6 +744,14 @@
                     'Tyre — Rear Right (RR)',
                     'Spare Tyre'
                 ]
+            },
+            {
+                name: 'OBD / Engine Scan',
+                items: [
+                    'Error Code',
+                    'idle RPM',
+                    'Charging Volt'
+                ]
             }
         ];
 
@@ -1108,7 +1116,7 @@
             const cat = CHECKLIST_CATEGORIES[activeCategoryIndex];
             
             const isPaintCategory = cat.name.includes('Paint');
-            const isEngineObdCategory = cat.name.includes('Hood') || cat.name.includes('Electrical');
+            const isEngineObdCategory = cat.name.includes('Hood') || cat.name.includes('Electrical') || cat.name.includes('OBD') || cat.name.includes('Scan');
             const isTyreCategory = cat.type === 'tyre';
             const isBaselineCategory = cat.type === 'baseline';
 
