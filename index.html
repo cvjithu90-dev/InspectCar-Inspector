@@ -941,7 +941,17 @@
                     if (client && client.auth) await client.auth.signOut();
                     currentUser = null;
                     currentProfile = null;
-                    throw new Error("Account deactivated.");
+                    throw new Error("Account deactivated. Contact your admin.");
+                }
+
+                // ── SECURITY: Admin users should use admin panel, not inspector app ──
+                if (data && data.role === 'admin') {
+                    if (client && client.auth) await client.auth.signOut();
+                    currentUser = null;
+                    currentProfile = null;
+                    showToast('Admin accounts must use admin.inspectcar.in', true);
+                    navigateToScreen('login');
+                    return false;
                 }
 
                 currentProfile = data;
