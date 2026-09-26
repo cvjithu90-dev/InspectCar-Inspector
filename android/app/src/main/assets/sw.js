@@ -1,4 +1,4 @@
-const CACHE_NAME = 'inspectcar-inspector-v3';
+const CACHE_NAME = 'inspectcar-inspector-v4';
 
 self.addEventListener('install', event => {
   self.skipWaiting();

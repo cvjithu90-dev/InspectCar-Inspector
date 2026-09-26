@@ -1553,9 +1553,56 @@
             }
         };
 
+        function savePhotoToDeviceGallery(file, itemName) {
+            if (!file) return;
+
+            // 1. If running inside Android WebView app with native bridge
+            if (window.AndroidHost && typeof window.AndroidHost.savePhotoToGallery === 'function') {
+                const reader = new FileReader();
+                reader.onload = function(evt) {
+                    try {
+                        window.AndroidHost.savePhotoToGallery(evt.target.result, itemName || 'Inspection');
+                    } catch(err) {
+                        console.warn('Native gallery save error:', err);
+                    }
+                };
+                reader.readAsDataURL(file);
+                return;
+            }
+
+            // 2. If running in web browser (Mobile Chrome / Safari / PWA)
+            try {
+                const url = URL.createObjectURL(file);
+                const a = document.createElement('a');
+                const timeStamp = new Date().toISOString().replace(/[-:T.]/g, '').slice(0, 14);
+                const safeName = (itemName || 'photo').replace(/[^a-zA-Z0-9]/g, '_').slice(0, 25);
+                a.href = url;
+                a.download = `InspectCar_${safeName}_${timeStamp}.jpg`;
+                a.style.display = 'none';
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(() => {
+                    if (a.parentNode) a.parentNode.removeChild(a);
+                    URL.revokeObjectURL(url);
+                }, 2000);
+            } catch(e) {
+                console.warn('Browser gallery copy error:', e);
+            }
+        }
+
         window.handleAddPhoto = (e, itemName) => {
             const file = e.target.files[0];
             if(!file) return;
+
+            // If captured via camera, save a copy to the device gallery (silent, does not affect flow)
+            try {
+                const isCamera = e.target && e.target.hasAttribute && e.target.hasAttribute('capture');
+                if (isCamera) {
+                    savePhotoToDeviceGallery(file, itemName);
+                }
+            } catch(err) {
+                console.warn('Gallery save skipped:', err);
+            }
 
             showLoader('Compressing photo...');
 

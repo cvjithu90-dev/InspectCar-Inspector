@@ -582,30 +582,16 @@
                     'Fender Right: Defects',
                     'Door Front Right: Defects',
                     'Door Rear Right: Defects',
+                    'Quarter Right: Defects',
                     'Running Board Right',
-                    'Rear Right door handle: physical',
+                    'All Door Handles',
+                    'Weather Strip / Rubber Conditions All Doors',
                     'VIN plate / rivets tamper signs',
                     'Fender / Door / Quarter / Pillar fitment (L & R)',
                     'Trunk / Tailgate: Defects & Fitment',
                     'Fuel lid / door condition & hinge',
                     'Left / Right ORVM housing condition',
                     'Modification'
-                ]
-            },
-            {
-                name: 'Glass & Mirrors',
-                items: [
-                    'Check all glass MFD',
-                    'Front windshield: chips / cracks',
-                    'Front windshield: wiper-arc scratches / haze',
-                    'Front windshield seal / garnish condition',
-                    'Left / Right ORVM mirror glass',
-                    'FL / FR door window glass condition',
-                    'RL / RR door window glass condition',
-                    'Rear windshield: chips / cracks',
-                    'Rear defogger lines (continuity)',
-                    'Rear windshield seal / garnish condition',
-                    'Sunroof glass condition'
                 ]
             },
             {
@@ -629,17 +615,19 @@
                 ]
             },
             {
-                name: 'Tyres, Wheels & Brakes',
+                name: 'Glass & Mirrors',
                 items: [
-                    'Tyre valve / nozzle — FL',
-                    'Tyre valve / nozzle — FR / RL',
-                    'Tyre sidewall / tread defects (all 4)',
-                    'Wheel rim condition (all 4)',
-                    'Mud / silt under carpets (front & rear)',
-                    'Seat rail rust / pitting',
-                    'Under-dash wiring oxidation / green patina',
-                    'Brake rotor visual (lip / scoring)',
-                    'Brake pad visual (thickness)'
+                    'Check all glass MFD',
+                    'Front windshield: chips / cracks',
+                    'Front windshield: wiper-arc scratches / haze',
+                    'Front windshield seal / garnish condition',
+                    'Left / Right ORVM mirror glass',
+                    'FL / FR door window glass condition',
+                    'RL / RR door window glass condition',
+                    'Rear windshield: chips / cracks',
+                    'Rear defogger lines (continuity)',
+                    'Rear windshield seal / garnish condition',
+                    'Sunroof glass condition'
                 ]
             },
             {
@@ -680,7 +668,8 @@
                     'Carpet fitment & cleanliness',
                     'Roof lining condition',
                     'Glovebox, center console & door pockets',
-                    'Interior rear-view mirror (mount / flip)'
+                    'Interior rear-view mirror (mount / flip)',
+                    'All Plastic Trims and Other Fittings'
                 ]
             },
             {
@@ -694,7 +683,8 @@
                     'Heater output',
                     'AC odour on start',
                     'Wiper controls, horn, hazard / defogger switches',
-                    'Cluster warning lamps status (Ignition ON)'
+                    'Cluster warning lamps status (Ignition ON)',
+                    'All Other Switches and Functions'
                 ]
             },
             {
@@ -704,10 +694,25 @@
                     'Steering free play (static) / adjust',
                     'Gear selector movement (PRND / pattern)',
                     'Hand / parking brake',
+                    'Clutch Play',
                     'Drive mode switch (Eco/Normal/Sport)',
                     'Pedal rubbers condition',
                     'Steering-mounted controls',
-                    'Brake pedal feel (static)'
+                    'Brake pedal feel (static)',
+                    'Accelerator Response'
+                ]
+            },
+            {
+                name: 'Under Hood — Engine ON',
+                items: [
+                    'Back compression (oil spill)',
+                    'unusual Noise from engine',
+                    'Idle quality / vibration',
+                    'Idle RPM (spec)',
+                    'Cooling fan operation',
+                    'Accessory belt noises',
+                    'Visible leaks at idle',
+                    'Charging voltage (idle, lights & AC ON)'
                 ]
             },
             {
@@ -722,16 +727,24 @@
                 ]
             },
             {
-                name: 'Under Hood — Engine ON',
+                name: 'Under Body / Suspension',
                 items: [
-                    'Back compression (oil spill)',
-                    'unusual Noise from engine',
-                    'Idle quality / vibration',
-                    'Idle RPM (spec)',
-                    'Cooling fan operation',
-                    'Accessory belt noises',
-                    'Visible leaks at idle',
-                    'Charging voltage (idle, lights & AC ON)'
+                    'Underbody Defects (Visually)',
+                    'Suspension Condition (Visually)'
+                ]
+            },
+            {
+                name: 'Tyres, Wheels & Brakes',
+                items: [
+                    'Tyre valve / nozzle — FL',
+                    'Tyre valve / nozzle — FR / RL',
+                    'Tyre sidewall / tread defects (all 4)',
+                    'Wheel rim condition (all 4)',
+                    'Mud / silt under carpets (front & rear)',
+                    'Seat rail rust / pitting',
+                    'Under-dash wiring oxidation / green patina',
+                    'Brake rotor visual (lip / scoring)',
+                    'Brake pad visual (thickness)'
                 ]
             },
             {
@@ -941,7 +954,17 @@
                     if (client && client.auth) await client.auth.signOut();
                     currentUser = null;
                     currentProfile = null;
-                    throw new Error("Account deactivated.");
+                    throw new Error("Account deactivated. Contact your admin.");
+                }
+
+                // ── SECURITY: Admin users should use admin panel, not inspector app ──
+                if (data && data.role === 'admin') {
+                    if (client && client.auth) await client.auth.signOut();
+                    currentUser = null;
+                    currentProfile = null;
+                    showToast('Admin accounts must use admin.inspectcar.in', true);
+                    navigateToScreen('login');
+                    return false;
                 }
 
                 currentProfile = data;
@@ -1530,9 +1553,56 @@
             }
         };
 
+        function savePhotoToDeviceGallery(file, itemName) {
+            if (!file) return;
+
+            // 1. If running inside Android WebView app with native bridge
+            if (window.AndroidHost && typeof window.AndroidHost.savePhotoToGallery === 'function') {
+                const reader = new FileReader();
+                reader.onload = function(evt) {
+                    try {
+                        window.AndroidHost.savePhotoToGallery(evt.target.result, itemName || 'Inspection');
+                    } catch(err) {
+                        console.warn('Native gallery save error:', err);
+                    }
+                };
+                reader.readAsDataURL(file);
+                return;
+            }
+
+            // 2. If running in web browser (Mobile Chrome / Safari / PWA)
+            try {
+                const url = URL.createObjectURL(file);
+                const a = document.createElement('a');
+                const timeStamp = new Date().toISOString().replace(/[-:T.]/g, '').slice(0, 14);
+                const safeName = (itemName || 'photo').replace(/[^a-zA-Z0-9]/g, '_').slice(0, 25);
+                a.href = url;
+                a.download = `InspectCar_${safeName}_${timeStamp}.jpg`;
+                a.style.display = 'none';
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(() => {
+                    if (a.parentNode) a.parentNode.removeChild(a);
+                    URL.revokeObjectURL(url);
+                }, 2000);
+            } catch(e) {
+                console.warn('Browser gallery copy error:', e);
+            }
+        }
+
         window.handleAddPhoto = (e, itemName) => {
             const file = e.target.files[0];
             if(!file) return;
+
+            // If captured via camera, save a copy to the device gallery (silent, does not affect flow)
+            try {
+                const isCamera = e.target && e.target.hasAttribute && e.target.hasAttribute('capture');
+                if (isCamera) {
+                    savePhotoToDeviceGallery(file, itemName);
+                }
+            } catch(err) {
+                console.warn('Gallery save skipped:', err);
+            }
 
             showLoader('Compressing photo...');
 
