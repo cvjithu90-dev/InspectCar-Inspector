@@ -1049,7 +1049,10 @@
                         <span style="font-weight:600">Ref: ${b.booking_ref}</span>
                         <span class="badge badge-${b.status === 'completed' ? 'completed' : 'pending'}">${b.status.toUpperCase()}</span>
                     </div>
-                    <div style="font-size:1.1rem; font-weight:600; margin-bottom:4px;">${b.vehicle_brand} ${b.vehicle_model}</div>
+                    <div style="font-size:1.1rem; font-weight:600; margin-bottom:4px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px;">
+                        <span>${b.vehicle_brand} ${b.vehicle_model}</span>
+                        ${b.vehicle_reg ? `<span style="font-size:0.75rem; background:rgba(99,102,241,0.18); color:#a5b4fc; border:1px solid rgba(99,102,241,0.35); padding:2px 8px; border-radius:4px; font-weight:700; letter-spacing:0.5px;">🚗 ${b.vehicle_reg}</span>` : `<span style="font-size:0.75rem; color:var(--text-muted); font-style:italic;">New / Pending</span>`}
+                    </div>
                     <p style="margin:0; font-size:0.85rem; color:var(--text-muted)">
                         👤 ${b.customer_name} • 📍 ${b.area || b.location_type || 'Location'}<br>
                         📅 ${b.inspection_date} 🕒 ${b.inspection_time}
@@ -1070,7 +1073,7 @@
             if(!booking) { showToast('Booking not found', true); window.location.hash='#/home'; return; }
 
             document.getElementById('insp-header-title').textContent = `Ref: ${booking.booking_ref}`;
-            document.getElementById('insp-header-sub').textContent = `${booking.vehicle_brand} ${booking.vehicle_model}`;
+            document.getElementById('insp-header-sub').textContent = `${booking.vehicle_brand} ${booking.vehicle_model}${booking.vehicle_reg ? ' • ' + booking.vehicle_reg : ''}`;
 
             currentChecklistDraft = getDraft(activeBookingId);
 
@@ -1674,7 +1677,7 @@
             
             const booking = bookingsCache.find(b => b.id == activeBookingId);
             if (booking) {
-                document.getElementById('submit-vehicle-name').textContent = `${booking.vehicle_brand} ${booking.vehicle_model}`;
+                document.getElementById('submit-vehicle-name').textContent = `${booking.vehicle_brand} ${booking.vehicle_model}${booking.vehicle_reg ? ' (' + booking.vehicle_reg + ')' : ''}`;
                 document.getElementById('submit-booking-ref').textContent = `Ref: ${booking.booking_ref}`;
             }
 
@@ -1899,7 +1902,10 @@
                         <span style="font-weight:600">Ref: ${b.booking_ref}</span>
                         <span class="badge badge-completed">COMPLETED</span>
                     </div>
-                    <div style="font-weight:600; font-size:1rem;">${b.vehicle_brand} ${b.vehicle_model}</div>
+                    <div style="font-weight:600; font-size:1rem; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px;">
+                        <span>${b.vehicle_brand} ${b.vehicle_model}</span>
+                        ${b.vehicle_reg ? `<span style="font-size:0.72rem; background:rgba(99,102,241,0.18); color:#a5b4fc; border:1px solid rgba(99,102,241,0.35); padding:2px 8px; border-radius:4px; font-weight:700; letter-spacing:0.5px;">🚗 ${b.vehicle_reg}</span>` : ''}
+                    </div>
                     <p style="margin:4px 0; font-size:0.8rem; color:var(--text-muted)">Customer: ${b.customer_name}<br>Date: ${b.inspection_date}</p>
                     <button class="btn btn-secondary mt-2" onclick="window.location.hash='#/inspection/${b.id}'">
                         ✏️ Edit / Re-open Inspection
