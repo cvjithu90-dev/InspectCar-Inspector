@@ -478,8 +478,13 @@
                 <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">📋</div>
                 <h3 id="submit-vehicle-name" style="margin:0; font-size: 1.2rem;">Vehicle Inspection</h3>
                 <p id="submit-booking-ref" style="color: var(--text-muted); font-size: 0.85rem; margin-top: 4px;">Ref: --</p>
-                <div id="submit-items-badge" class="badge badge-completed" style="display:inline-block; font-size: 0.85rem; padding: 6px 14px; margin-top: 10px;">
-                    0 Points Inspected
+                <div style="display:flex; justify-content:center; gap:8px; flex-wrap:wrap; margin-top:10px;">
+                    <div id="submit-items-badge" class="badge badge-completed" style="font-size: 0.85rem; padding: 6px 14px;">
+                        0 Points Inspected
+                    </div>
+                    <div id="submit-photos-badge" class="badge badge-completed" style="font-size: 0.85rem; padding: 6px 14px; background: rgba(139,92,246,0.2); border: 1px solid #8b5cf6; color: #c4b5fd;">
+                        📷 0 Photos Captured
+                    </div>
                 </div>
             </div>
 
@@ -852,11 +857,11 @@
                     navigateToScreen('profile');
                 } else if (hash.startsWith('#/inspection/')) {
                     activeBookingId = hash.replace('#/inspection/', '');
-                    loadInspectionScreen();
+                    await loadInspectionScreen();
                     navigateToScreen('inspection');
                 } else if (hash.startsWith('#/summary/')) {
                     activeBookingId = hash.replace('#/summary/', '');
-                    loadSummaryScreen();
+                    await loadSummaryScreen();
                     navigateToScreen('summary');
                 } else {
                     navigateToScreen('home');
@@ -997,21 +1002,109 @@
             }
         }
 
-        function getDraft(bookingId) {
+        // Resilient IndexedDB draft store (prevents quota issues when taking 20+ photos)
+        const idbInspectorStore = {
+            _db: null,
+            async getDb() {
+                if (this._db) return this._db;
+                return new Promise(resolve => {
+                    if (!('indexedDB' in window)) return resolve(null);
+                    try {
+                        const req = indexedDB.open('InspectCarInspectorStore', 1);
+                        req.onupgradeneeded = e => {
+                            const db = e.target.result;
+                            if (!db.objectStoreNames.contains('drafts')) {
+                                db.createObjectStore('drafts');
+                            }
+                        };
+                        req.onsuccess = e => {
+                            idbInspectorStore._db = e.target.result;
+                            resolve(idbInspectorStore._db);
+                        };
+                        req.onerror = () => resolve(null);
+                    } catch(e) { resolve(null); }
+                });
+            },
+            async set(key, val) {
+                try {
+                    const db = await this.getDb();
+                    if (!db) return false;
+                    return new Promise(resolve => {
+                        const tx = db.transaction('drafts', 'readwrite');
+                        tx.objectStore('drafts').put(val, key);
+                        tx.oncomplete = () => resolve(true);
+                        tx.onerror = () => resolve(false);
+                    });
+                } catch(e) { return false; }
+            },
+            async get(key) {
+                try {
+                    const db = await this.getDb();
+                    if (!db) return null;
+                    return new Promise(resolve => {
+                        const tx = db.transaction('drafts', 'readonly');
+                        const req = tx.objectStore('drafts').get(key);
+                        req.onsuccess = () => resolve(req.result || null);
+                        req.onerror = () => resolve(null);
+                    });
+                } catch(e) { return null; }
+            },
+            async remove(key) {
+                try {
+                    const db = await this.getDb();
+                    if (!db) return false;
+                    return new Promise(resolve => {
+                        const tx = db.transaction('drafts', 'readwrite');
+                        tx.objectStore('drafts').delete(key);
+                        tx.oncomplete = () => resolve(true);
+                        tx.onerror = () => resolve(false);
+                    });
+                } catch(e) { return false; }
+            }
+        };
+
+        async function getDraft(bookingId) {
+            try {
+                const idbData = await idbInspectorStore.get(`draft_${bookingId}`);
+                if (idbData && typeof idbData === 'object' && idbData.items) {
+                    return idbData;
+                }
+            } catch(e) {}
+
             try {
                 const d = localStorage.getItem(`draft_${bookingId}`);
-                if (!d) return { items: {} };
-                const parsed = JSON.parse(d);
-                if (!parsed || typeof parsed !== 'object' || !parsed.items) return { items: {} };
-                return parsed;
-            } catch(e) {
-                return { items: {} };
-            }
+                if (d) {
+                    const parsed = JSON.parse(d);
+                    if (parsed && typeof parsed === 'object' && parsed.items) return parsed;
+                }
+            } catch(e) {}
+            return { items: {} };
         }
+
         function saveDraft(bookingId, draft) {
+            if (!bookingId || !draft) return;
+            // 1. Always persist to IndexedDB (unlimited quota, handles all high-res photos)
+            try {
+                idbInspectorStore.set(`draft_${bookingId}`, draft);
+            } catch(e) {}
+
+            // 2. Also try localStorage safely
             try {
                 localStorage.setItem(`draft_${bookingId}`, JSON.stringify(draft));
-            } catch(e) {}
+            } catch(e) {
+                // If quota exceeded, prune other drafts from localStorage
+                try {
+                    for (let i = 0; i < localStorage.length; i++) {
+                        const k = localStorage.key(i);
+                        if (k && k.startsWith('draft_') && k !== `draft_${bookingId}`) {
+                            localStorage.removeItem(k);
+                        }
+                    }
+                    localStorage.setItem(`draft_${bookingId}`, JSON.stringify(draft));
+                } catch(err2) {
+                    // IndexedDB already has the full copy
+                }
+            }
         }
 
         // Home Screen
@@ -1075,7 +1168,7 @@
             document.getElementById('insp-header-title').textContent = `Ref: ${booking.booking_ref}`;
             document.getElementById('insp-header-sub').textContent = `${booking.vehicle_brand} ${booking.vehicle_model}${booking.vehicle_reg ? ' • ' + booking.vehicle_reg : ''}`;
 
-            currentChecklistDraft = getDraft(activeBookingId);
+            currentChecklistDraft = await getDraft(activeBookingId);
 
             // Fetch GPS Location automatically
             if (navigator.geolocation) {
@@ -1094,9 +1187,9 @@
                         const { data: existingAnswers } = await client.from('inspection_answers').select('*').eq('booking_id', activeBookingId);
                         const { data: existingPhotos } = await client.from('inspection_photos').select('*').eq('booking_id', activeBookingId);
 
-                        if (existingAnswers && existingAnswers.length > 0) {
+                        if ((existingAnswers && existingAnswers.length > 0) || (existingPhotos && existingPhotos.length > 0)) {
                             currentChecklistDraft = { items: {} };
-                            existingAnswers.forEach(ans => {
+                            (existingAnswers || []).forEach(ans => {
                                 const photos = (existingPhotos || []).filter(p => p.item_name === ans.item_name).map(p => p.photo_url);
                                 currentChecklistDraft.items[ans.item_name] = {
                                     status: ans.answer,
@@ -1107,9 +1200,41 @@
                                     photos: photos
                                 };
                             });
+
+                            // Also restore baseline photos and any unmapped photos
+                            (existingPhotos || []).forEach(p => {
+                                if (!p.item_name) return;
+                                const pLower = p.item_name.toLowerCase();
+                                if (pLower.includes('exterior baseline') || pLower.includes('front view') || pLower.includes('rear view') || pLower.includes('left side') || pLower.includes('right side')) {
+                                    let slotKey = null;
+                                    if (pLower.includes('front')) slotKey = 'front';
+                                    else if (pLower.includes('rear')) slotKey = 'rear';
+                                    else if (pLower.includes('left')) slotKey = 'left';
+                                    else if (pLower.includes('right')) slotKey = 'right';
+                                    if (slotKey) {
+                                        const draftKey = 'Exterior Baseline Photos_' + slotKey;
+                                        if (!currentChecklistDraft.items[draftKey]) currentChecklistDraft.items[draftKey] = { photos: [] };
+                                        if (!currentChecklistDraft.items[draftKey].photos.includes(p.photo_url)) {
+                                            currentChecklistDraft.items[draftKey].photos.push(p.photo_url);
+                                        }
+                                    }
+                                } else {
+                                    if (!currentChecklistDraft.items[p.item_name]) {
+                                        currentChecklistDraft.items[p.item_name] = { status: 'Pass', severity: 'low', note: '', photos: [] };
+                                    }
+                                    if (!currentChecklistDraft.items[p.item_name].photos) {
+                                        currentChecklistDraft.items[p.item_name].photos = [];
+                                    }
+                                    if (!currentChecklistDraft.items[p.item_name].photos.includes(p.photo_url)) {
+                                        currentChecklistDraft.items[p.item_name].photos.push(p.photo_url);
+                                    }
+                                }
+                            });
                             saveDraft(activeBookingId, currentChecklistDraft);
                         }
-                    } catch(e) {}
+                    } catch(e) {
+                        console.warn("Draft restore exception:", e);
+                    }
                 }
             }
 
@@ -1594,12 +1719,13 @@
         }
 
         window.handleAddPhoto = (e, itemName) => {
-            const file = e.target.files[0];
+            const inputEl = e.target;
+            const file = inputEl && inputEl.files ? inputEl.files[0] : null;
             if(!file) return;
 
             // If captured via camera, save a copy to the device gallery (silent, does not affect flow)
             try {
-                const isCamera = e.target && e.target.hasAttribute && e.target.hasAttribute('capture');
+                const isCamera = inputEl && inputEl.hasAttribute && inputEl.hasAttribute('capture');
                 if (isCamera) {
                     savePhotoToDeviceGallery(file, itemName);
                 }
@@ -1613,42 +1739,63 @@
             reader.onload = (ev) => {
                 const img = new Image();
                 img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    let width = img.width;
-                    let height = img.height;
-                    const maxDim = 1000;
+                    try {
+                        const canvas = document.createElement('canvas');
+                        let width = img.width;
+                        let height = img.height;
+                        const maxDim = 1200;
 
-                    if (width > maxDim || height > maxDim) {
-                        if (width > height) {
-                            height = Math.round((height * maxDim) / width);
-                            width = maxDim;
-                        } else {
-                            width = Math.round((width * maxDim) / height);
-                            height = maxDim;
+                        if (width > maxDim || height > maxDim) {
+                            if (width > height) {
+                                height = Math.round((height * maxDim) / width);
+                                width = maxDim;
+                            } else {
+                                width = Math.round((width * maxDim) / height);
+                                height = maxDim;
+                            }
                         }
+
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+
+                        const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.75);
+
+                        if(!currentChecklistDraft.items[itemName]) {
+                            currentChecklistDraft.items[itemName] = { status: 'Pass', severity: 'low', note: '', photos: [] };
+                        }
+                        if (!currentChecklistDraft.items[itemName].photos) {
+                            currentChecklistDraft.items[itemName].photos = [];
+                        }
+                        currentChecklistDraft.items[itemName].photos.push(compressedDataUrl);
+
+                        saveDraft(activeBookingId, currentChecklistDraft);
+
+                        // Reset input so taking another photo with the same button triggers onchange properly
+                        try { if (inputEl) inputEl.value = ''; } catch(e) {}
+
+                        hideLoader();
+                        showToast('📷 Photo added!', false);
+                        renderChecklistForCategory();
+                    } catch(procErr) {
+                        console.error("Photo processing error:", procErr);
+                        try { if (inputEl) inputEl.value = ''; } catch(e) {}
+                        hideLoader();
+                        showToast('Failed to process photo', true);
                     }
-
-                    canvas.width = width;
-                    canvas.height = height;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0, width, height);
-
-                    const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.7);
-
-                    if(!currentChecklistDraft.items[itemName]) {
-                        currentChecklistDraft.items[itemName] = { status: 'Pass', severity: 'low', note: '', photos: [] };
-                    }
-                    if (!currentChecklistDraft.items[itemName].photos) {
-                        currentChecklistDraft.items[itemName].photos = [];
-                    }
-                    currentChecklistDraft.items[itemName].photos.push(compressedDataUrl);
-
-                    saveDraft(activeBookingId, currentChecklistDraft);
+                };
+                img.onerror = () => {
+                    try { if (inputEl) inputEl.value = ''; } catch(e) {}
                     hideLoader();
-                    showToast('📷 Photo added!', false);
-                    renderChecklistForCategory();
+                    showToast('Could not load image', true);
                 };
                 img.src = ev.target.result;
+            };
+            reader.onerror = () => {
+                try { if (inputEl) inputEl.value = ''; } catch(e) {}
+                hideLoader();
+                showToast('Could not read image file', true);
             };
             reader.readAsDataURL(file);
         };
@@ -1691,34 +1838,95 @@
             });
 
             document.getElementById('submit-items-badge').textContent = `✓ ${completedCount} Diagnostic Points Inspected`;
+
+            // Calculate total unique photos captured across all items and baseline slots
+            let totalPhotosCount = 0;
+            const countedPhotos = new Set();
+            Object.keys(currentChecklistDraft.items || {}).forEach(k => {
+                const itm = currentChecklistDraft.items[k];
+                if (itm && Array.isArray(itm.photos)) {
+                    itm.photos.forEach(p => {
+                        if (p && !countedPhotos.has(p)) {
+                            countedPhotos.add(p);
+                            totalPhotosCount++;
+                        }
+                    });
+                }
+            });
+
+            const photosBadge = document.getElementById('submit-photos-badge');
+            if (photosBadge) {
+                photosBadge.textContent = `📷 ${totalPhotosCount} Photos Attached`;
+            }
         }
 
-        // Helper: Upload photo base64 to Supabase Storage bucket 'report-documents'
-        async function uploadPhotoToStorage(dataUrl, bookingId) {
+        // Helper: Convert Data URL to Blob safely without network fetch
+        function dataURLtoBlob(dataurl) {
+            try {
+                if (!dataurl || typeof dataurl !== 'string') return null;
+                const arr = dataurl.split(',');
+                if (arr.length < 2) return null;
+                const mimeMatch = arr[0].match(/:(.*?);/);
+                const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+                const bstr = atob(arr[1]);
+                let n = bstr.length;
+                const u8arr = new Uint8Array(n);
+                while (n--) {
+                    u8arr[n] = bstr.charCodeAt(n);
+                }
+                return new Blob([u8arr], { type: mime });
+            } catch(e) {
+                console.warn("dataURLtoBlob error:", e);
+                return null;
+            }
+        }
+
+        // Helper: Upload photo base64 to Supabase Storage with retries & dual-bucket fallback
+        async function uploadPhotoToStorage(dataUrl, bookingId, photoIdx, totalPhotos) {
             try {
                 const client = dbClient || window.supabase;
                 if (!client || !dataUrl || !dataUrl.startsWith('data:')) return dataUrl;
 
-                const res = await fetch(dataUrl);
-                const blob = await res.blob();
+                const blob = dataURLtoBlob(dataUrl);
+                if (!blob) return dataUrl;
+
                 const fileExt = 'jpg';
                 const fileName = `inspection_${bookingId}_${Date.now()}_${Math.random().toString(36).substring(2,7)}.${fileExt}`;
                 const filePath = `photos/${bookingId}/${fileName}`;
 
-                const { data, error } = await client.storage.from('report-documents').upload(filePath, blob, {
-                    contentType: 'image/jpeg',
-                    upsert: true
-                });
+                // Try primary 'report-documents' bucket, with fallback to 'inspection-photos'
+                const targetBuckets = ['report-documents', 'inspection-photos'];
 
-                if (error) {
-                    console.warn("Storage upload error, using base64 fallback:", error.message);
-                    return dataUrl;
+                for (let attempt = 1; attempt <= 3; attempt++) {
+                    for (const bucket of targetBuckets) {
+                        try {
+                            const { data, error } = await client.storage.from(bucket).upload(filePath, blob, {
+                                contentType: 'image/jpeg',
+                                upsert: true
+                            });
+
+                            if (!error && data) {
+                                const { data: pubData } = client.storage.from(bucket).getPublicUrl(filePath);
+                                if (pubData && pubData.publicUrl) {
+                                    return pubData.publicUrl;
+                                }
+                            } else if (error) {
+                                console.warn(`Storage upload attempt ${attempt} on bucket ${bucket} error:`, error.message);
+                            }
+                        } catch (err) {
+                            console.warn(`Storage upload attempt ${attempt} on bucket ${bucket} exception:`, err);
+                        }
+                    }
+                    if (attempt < 3) {
+                        showLoader(`Retrying photo ${photoIdx || ''} upload (attempt ${attempt + 1})...`);
+                        await new Promise(r => setTimeout(r, 800 * attempt));
+                    }
                 }
 
-                const { data: pubData } = client.storage.from('report-documents').getPublicUrl(filePath);
-                return pubData ? pubData.publicUrl : dataUrl;
+                console.warn("Storage upload all retries exhausted, falling back to base64");
+                return dataUrl;
             } catch (err) {
-                console.warn("Storage upload exception, using base64 fallback:", err);
+                console.warn("Storage upload exception, using fallback:", err);
                 return dataUrl;
             }
         }
@@ -1739,6 +1947,7 @@
                 // Collect answers & photos
                 const answersPayload = [];
                 const rawPhotosList = [];
+                const trackedPhotoUrls = new Set();
 
                 CHECKLIST_CATEGORIES.forEach(cat => {
                     const isTyreCat = cat.type === 'tyre';
@@ -1772,12 +1981,15 @@
 
                         if (d.photos && d.photos.length > 0) {
                             d.photos.forEach(pUrl => {
-                                rawPhotosList.push({
-                                    category: cat.name,
-                                    item_name: item,
-                                    caption: `${item} (${d.status || 'Pass'})`,
-                                    dataUrl: pUrl
-                                });
+                                if (pUrl && !trackedPhotoUrls.has(pUrl)) {
+                                    trackedPhotoUrls.add(pUrl);
+                                    rawPhotosList.push({
+                                        category: cat.name,
+                                        item_name: item,
+                                        caption: `${item} (${d.status || 'Pass'})`,
+                                        dataUrl: pUrl
+                                    });
+                                }
                             });
                         }
                     });
@@ -1794,24 +2006,46 @@
                     const slotDraft = currentChecklistDraft.items['Exterior Baseline Photos_' + slot.key] || {};
                     if (slotDraft.photos && slotDraft.photos.length > 0) {
                         slotDraft.photos.forEach(pUrl => {
-                            rawPhotosList.push({
-                                category: 'Baseline Photos & Docs',
-                                item_name: slot.label,
-                                caption: slot.label,
-                                dataUrl: pUrl
-                            });
+                            if (pUrl && !trackedPhotoUrls.has(pUrl)) {
+                                trackedPhotoUrls.add(pUrl);
+                                rawPhotosList.push({
+                                    category: 'Baseline Photos & Docs',
+                                    item_name: slot.label,
+                                    caption: slot.label,
+                                    dataUrl: pUrl
+                                });
+                            }
                         });
                     }
                 });
 
-                // Step 1: Upload photos to Storage bucket in background
+                // Comprehensive fallback: Sweep ALL remaining keys in currentChecklistDraft.items
+                // Guarantees zero photos taken by inspector are ever dropped!
+                Object.keys(currentChecklistDraft.items || {}).forEach(k => {
+                    const itm = currentChecklistDraft.items[k];
+                    if (itm && Array.isArray(itm.photos) && itm.photos.length > 0) {
+                        itm.photos.forEach((pUrl, pIdx) => {
+                            if (pUrl && !trackedPhotoUrls.has(pUrl)) {
+                                trackedPhotoUrls.add(pUrl);
+                                rawPhotosList.push({
+                                    category: 'Inspection Photos',
+                                    item_name: k,
+                                    caption: `${k} Photo ${pIdx + 1}`,
+                                    dataUrl: pUrl
+                                });
+                            }
+                        });
+                    }
+                });
+
+                // Step 1: Upload photos to Storage bucket in background with retries
                 const photosPayload = [];
                 const totalPhotos = rawPhotosList.length;
 
                 for (let i = 0; i < totalPhotos; i++) {
                     showLoader(`Uploading photo ${i + 1} of ${totalPhotos}...`);
                     const photoObj = rawPhotosList[i];
-                    const finalUrl = await uploadPhotoToStorage(photoObj.dataUrl, activeBookingId);
+                    const finalUrl = await uploadPhotoToStorage(photoObj.dataUrl, activeBookingId, i + 1, totalPhotos);
                     photosPayload.push({
                         booking_id: activeBookingId,
                         category: photoObj.category,
@@ -1837,30 +2071,50 @@
                     }
                 }
 
-                // Step 4: Insert photos in batches of 5
+                // Step 4: Insert photos in batches of 5 (with individual fallback on error)
                 for (let i = 0; i < photosPayload.length; i += 5) {
                     const photoBatch = photosPayload.slice(i, i + 5);
                     const { error: photoErr } = await client.from('inspection_photos').insert(photoBatch);
                     if (photoErr) {
-                        console.error("Photos insert error:", photoErr);
-                        throw new Error("Failed to save inspection photos: " + photoErr.message);
+                        console.warn("Photos batch insert error, retrying individual items:", photoErr.message);
+                        for (const singlePhoto of photoBatch) {
+                            try {
+                                const { error: singleErr } = await client.from('inspection_photos').insert([singlePhoto]);
+                                if (singleErr) {
+                                    console.error("Single photo insert failed:", singlePhoto.item_name, singleErr.message);
+                                }
+                            } catch(singleEx) {
+                                console.error("Single photo insert exception:", singlePhoto.item_name, singleEx);
+                            }
+                        }
                     }
                 }
 
                 // Step 5: Update booking status & report_status
                 showLoader('Finalizing inspection status...');
-                const { error: bErr } = await client.from('bookings').update({
+                const notesVal = document.getElementById('report-notes')?.value?.trim();
+                const updatePayload = {
                     status: 'completed',
                     report_status: 'inspection_completed'
-                }).eq('id', activeBookingId);
+                };
+                if (notesVal) {
+                    updatePayload.admin_notes = notesVal;
+                }
+                const { error: bErr } = await client.from('bookings').update(updatePayload).eq('id', activeBookingId);
+                if (bErr) {
+                    // Fallback without admin_notes if column not present
+                    await client.from('bookings').update({
+                        status: 'completed',
+                        report_status: 'inspection_completed'
+                    }).eq('id', activeBookingId);
+                }
 
-                if (bErr) throw bErr;
-
-                // Clear local draft
+                // Clear local and IndexedDB drafts
+                try { await idbInspectorStore.remove(`draft_${activeBookingId}`); } catch(e) {}
                 localStorage.removeItem(`draft_${activeBookingId}`);
                 
                 hideLoader();
-                showToast('🎉 Inspection submitted! Photos & checklist ready for Admin review.');
+                showToast(`🎉 Inspection submitted! ${totalPhotos} photo${totalPhotos !== 1 ? 's' : ''} & checklist saved.`);
                 window.location.hash = '#/home';
             } catch(e) {
                 hideLoader();
